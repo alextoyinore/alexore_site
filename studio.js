@@ -422,7 +422,23 @@ async function setView(view) {
   }
 }
 
-document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
+const sidebarMobileToggle = $('#sidebarMobileToggle');
+const closeMobileSidebar = () => {
+  $('.sidebar').classList.remove('is-open');
+  sidebarMobileToggle?.setAttribute('aria-expanded', 'false');
+  sidebarMobileToggle?.setAttribute('aria-label', 'Open studio menu');
+  if (sidebarMobileToggle) sidebarMobileToggle.querySelector('.sidebar-mobile-toggle-label').textContent = 'Menu';
+};
+sidebarMobileToggle?.addEventListener('click', () => {
+  const open = $('.sidebar').classList.toggle('is-open');
+  sidebarMobileToggle.setAttribute('aria-expanded', String(open));
+  sidebarMobileToggle.setAttribute('aria-label', open ? 'Close studio menu' : 'Open studio menu');
+  sidebarMobileToggle.querySelector('.sidebar-mobile-toggle-label').textContent = open ? 'Close' : 'Menu';
+});
+document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => {
+  closeMobileSidebar();
+  setView(button.dataset.view);
+}));
 document.querySelectorAll('[data-go]').forEach(button => button.addEventListener('click', () => setView(button.dataset.go)));
 $('#loginForm').addEventListener('submit', async event => {
   event.preventDefault(); $('#loginMessage').classList.remove('login-error');

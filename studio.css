@@ -21,6 +21,12 @@
   letter-spacing:.14em;
   padding:0 7px 44px
 }
+.sidebar-links {
+  display:contents
+}
+.sidebar-mobile-toggle {
+  display:none
+}
 .sidebar .mark {
   border-color:#c7e9f1
 }
@@ -1363,32 +1369,81 @@
 }
 @media(max-width:600px) {
   .sidebar {
+    position:sticky;
+    top:0;
+    z-index:15;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    align-items:center;
+    gap:0 12px;
+    width:100%;
     height:auto;
-    flex-wrap:wrap;
-    gap:4px;
-    padding:10px 12px
+    max-height:100vh;
+    overflow:visible;
+    padding:10px 18px;
+    box-shadow:0 5px 18px #11191c10
   }
   .sidebar .wordmark {
-    flex:0 0 100%;
-    padding-bottom:5px
+    padding:0 2px
   }
-  .sidebar .side-label,.sidebar .side-bottom {
+  .sidebar-mobile-toggle {
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    min-height:38px;
+    padding:0 12px;
+    border:1px solid #354448;
+    border-radius:3px;
+    background:#202c30;
+    color:#eaf2f4;
+    font:10px var(--sans);
+    cursor:pointer
+  }
+  .sidebar-mobile-toggle>span:first-child {
+    font-size:15px;
+    line-height:1
+  }
+  .sidebar-links {
     display:none
+  }
+  .sidebar.is-open .sidebar-links {
+    display:flex;
+    flex-direction:column;
+    grid-column:1/-1;
+    gap:0;
+    max-height:min(70vh,520px);
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    margin-top:10px;
+    padding:8px 0 4px;
+    border-top:1px solid #2b373a
+  }
+  .sidebar .side-label {
+    display:block;
+    padding:12px 10px 7px;
+    font-size:8px
+  }
+  .sidebar .side-label-spaced {
+    margin-top:10px
   }
   .sidebar .side-link {
     display:flex;
-    flex:1 0 calc(33.333% - 8px);
-    width:calc(33.333% - 8px);
-    min-width:0;
-    gap:6px;
-    padding:9px 7px;
-    font-size:9px
+    flex:0 0 auto;
+    width:100%;
+    min-height:42px;
+    gap:12px;
+    padding:10px;
+    font-size:12px
   }
   .sidebar .side-link>span {
-    width:14px;
-    font-size:13px
+    width:18px;
+    font-size:15px
   }
   .sidebar .side-link i {
+    display:none
+  }
+  .sidebar .side-bottom {
     display:none
   }
 }
