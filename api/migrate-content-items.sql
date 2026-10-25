@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS content_items (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  kind ENUM('book','product','video','podcast') NOT NULL,
+  slug VARCHAR(220) NOT NULL UNIQUE,
+  title VARCHAR(240) NOT NULL,
+  category VARCHAR(80) NOT NULL DEFAULT 'Notes',
+  tags TEXT NOT NULL,
+  summary VARCHAR(500) NOT NULL DEFAULT '',
+  body MEDIUMTEXT NOT NULL,
+  cover_image VARCHAR(2048) NOT NULL DEFAULT '',
+  media_url VARCHAR(2048) NOT NULL DEFAULT '',
+  asset_url VARCHAR(2048) NOT NULL DEFAULT '',
+  purchase_url VARCHAR(2048) NOT NULL DEFAULT '',
+  price DECIMAL(10,2) NULL,
+  currency CHAR(3) NOT NULL DEFAULT 'NGN',
+  status ENUM('draft','published') NOT NULL DEFAULT 'draft',
+  published_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_content_public (status, kind, published_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

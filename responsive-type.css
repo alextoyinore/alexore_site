@@ -1,0 +1,166 @@
+:root {
+  --type-caption: clamp(.58rem, .55rem + .12vw, .7rem);
+  --type-small: clamp(.72rem, .68rem + .18vw, .84rem);
+  --type-body: clamp(.875rem, .82rem + .25vw, 1rem);
+  --type-lead: clamp(1rem, .94rem + .4vw, 1.2rem);
+  --type-h3: clamp(1.2rem, 1.04rem + .8vw, 1.75rem);
+  --type-h2: clamp(1.7rem, 1.35rem + 1.9vw, 2.8rem);
+  --type-h1: clamp(2.5rem, 1.85rem + 4.4vw, 5.5rem);
+}
+body {
+  font-size: var(--type-body);
+}
+.main-nav, .nav-cta, .hero-intro, .featured-copy p, .newsletter-copy p,
+.about-copy p, .offer-head > p, .offer-card p, .detail-lead,
+.detail-copy p, .detail-point span, .detail-bottom p, .article-body,
+.article-deck, .studio-heading p, .quick-panel > p, .detail-panel > p,
+.login-card p {
+  font-size: var(--type-body);
+}
+.eyebrow, .post-meta, .article-meta, .detail-kicker, .field-label,
+.field-help, .stat-label, .save-indicator, .back-site, .studio-footer,
+.plain-link, .status, .detail-row small, .subscribe-form label,
+.article-tags span {
+  font-size: var(--type-caption);
+}
+.hero h1, .detail-hero h1, .article-wrap h1 {
+  font-size: var(--type-h1);
+}
+.section-heading h2, .offer-head h2, .about-copy h2, .newsletter-copy h2,
+.detail-content h2, .detail-bottom h2, .studio-heading h1,
+.panel-head h2, .quick-panel h2 {
+  font-size: var(--type-h2);
+}
+.featured-copy h3, .post-card h3, .offer-card h3, .detail-point b,
+.editor-page .editor-top h2 {
+  font-size: var(--type-h3);
+}
+.article-deck {
+  font-size: clamp(1rem, .96rem + .32vw, 1.125rem);
+  line-height: 1.55;
+}
+.article-body {
+  font-size: clamp(.94rem, .9rem + .2vw, 1rem);
+}
+.rich-editor {
+  font-size: clamp(.94rem, .9rem + .2vw, 1rem);
+}
+.studio-heading .button, .editor-bottom .button,
+.profile-dropdown > button {
+  font-size: var(--type-small);
+}
+@media (max-width: 600px) {
+  :root {
+    --type-caption: clamp(.58rem, 2.1vw, .66rem);
+    --type-small: clamp(.7rem, 2.5vw, .8rem);
+    --type-body: clamp(.875rem, 3.4vw, .96rem);
+    --type-lead: clamp(1rem, 4vw, 1.12rem);
+    --type-h3: clamp(1.12rem, 4.6vw, 1.42rem);
+    --type-h2: clamp(1.65rem, 7vw, 2.2rem);
+    --type-h1: clamp(2.35rem, 10vw, 3.6rem);
+  }
+  .article-deck {
+    font-size: clamp(.98rem, 3.8vw, 1.05rem);
+  }
+  .studio-heading h1 {
+    font-size: clamp(1.8rem, 8vw, 2.25rem);
+  }
+  .profile-dropdown-name {
+    font-size: var(--type-body);
+  }
+}
+.button, .text-link, .read-link, .card-arrow, .quick-action,
+.studio-top, .side-link, .login-card .button {
+  font-size: var(--type-small);
+}
+.field-label input, .field-label textarea, .field-label select,
+.email-row input, .email-row button {
+  font-size: clamp(.78rem, .74rem + .18vw, .9rem);
+}
+#articleTitle {
+  font-size: clamp(1.05rem, 1rem + .45vw, 1.3rem);
+}
+.stat-value, .audience-number strong {
+  font-size: clamp(1.8rem, 3vw, 2.2rem);
+}
+.next-chapter b, .recent-item b, .quick-action b,
+.detail-row, .settings-form {
+  font-size: clamp(.78rem, .74rem + .22vw, .92rem);
+}
+.login-card h1 {
+  font-size: clamp(2rem, 5vw, 2.5rem);
+}
+.editor-toolbar button, .editor-toolbar select {
+  font-size: clamp(.62rem, .6rem + .12vw, .72rem);
+}
+.article-hero {
+  height:clamp(160px,24vw,190px);
+  min-height:0;
+  padding:0;
+  background:#d9eef3
+}
+.article-hero.has-sample-art {
+  background:transparent
+}
+.article-cover-art {
+  position:absolute!important;
+  inset:0;
+  width:100%;
+  height:100%;
+  min-height:0;
+  padding:24px;
+  overflow:hidden
+}
+.article-cover-card {
+  font-size:9px
+}
+.article-cover-card .line-curve {
+  transform:rotate(-25deg)
+}
+.article-cover-card .coin-shape {
+  top:35px;
+  transform:none
+}
+.article-cover-card .blue-orbit {
+  top:58px;
+  transform:none
+}
+.article-hero.has-sample-art:after {
+  display:none
+}
+@media(max-width:600px) {
+  .article-hero {
+    height:clamp(140px,38vw,170px)
+  }
+  .article-cover-art {
+    padding:17px
+  }
+  .article-cover-card .line-curve {
+    transform:rotate(-25deg)
+  }
+  .article-cover-card .coin-shape {
+    top:35px;
+    transform:none
+  }
+  .article-cover-card .blue-orbit {
+    top:58px;
+    transform:none
+  }
+}
+.article-meta-top {
+  margin:32px 0 12px;
+  color:#68797e
+}
+#articleTitle {
+  font-family:var(--serif)
+}
+#articleBody.rich-editor {
+  font-family:var(--sans)
+}
+#articleBody.rich-editor h2,#articleBody.rich-editor h3,#articleBody.rich-editor blockquote {
+  font-family:var(--serif)
+}
+/* Keep navigation and header actions compact; the wordmark remains unchanged. */
+.topbar .main-nav,.topbar .nav-cta {
+  font-size:clamp(10px,.64rem + .12vw,12px)
+}

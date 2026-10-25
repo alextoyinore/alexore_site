@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#f4f9fa">
+    <title>Writing — alexore</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="detail.css">
+    <link rel="stylesheet" href="responsive-type.css">
+    <link rel="stylesheet" href="catalog.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="wordmark" href="index.html"><span class="mark">a</span><span>ALEXORE<span class="wordmark-dot">.</span></span></a>
+      <button class="menu-button" type="button" aria-label="Open navigation" aria-expanded="false">
+        ☰
+      </button>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="index.html">Home</a><a href="writing.html">Writing</a><a href="index.html#about">About</a><a href="index.html#work">Work with me</a>
+      </nav>
+      <a class="nav-cta" href="index.html#newsletter">Get the notes <span>↗</span></a>
+    </header>
+    <main class="catalog-page page-width">
+      <div class="catalog-intro">
+        <div class="detail-breadcrumb">
+          <a href="index.html">HOME</a> / WRITING
+        </div>
+        <div class="eyebrow">
+          THE NOTEBOOK
+        </div>
+        <h1>
+          All writing.
+        </h1>
+        <p>
+          Essays and field notes on work, money, becoming, and conversations that matter.
+        </p>
+        <label class="catalog-search">
+          <span>SEARCH WRITING</span><input id="catalogSearch" type="search" placeholder="Find an idea, category, or tag">
+        </label>
+      </div>
+      <div id="writingList" class="catalog-grid">
+      </div>
+      <p id="catalogEmpty" class="empty-state hidden">
+        No writing matched that search.
+      </p>
+    </main>
+    <footer class="footer">
+      <div class="page-width footer-inner">
+        <a class="wordmark" href="index.html"><span class="mark">a</span><span>ALEXORE<span class="wordmark-dot">.</span></span></a><span>Made with intention in Lagos, Nigeria.</span>
+        <nav class="footer-pages" aria-label="More pages">
+          <a href="products.html">Books & tools</a><a href="media.html">Video & podcast</a><a href="teaching.html">Teaching</a><a href="speaking.html">Speaking</a><a href="studio.html">Studio</a>
+        </nav>
+        <div class="footer-socials">
+          <a data-social="x" href="#x">X ↗</a><a data-social="medium" href="#medium">Medium ↗</a><a data-social="substack" href="#substack">Substack ↗</a><a data-social="linkedin" href="#linkedin">LinkedIn ↗</a><a data-social="youtube" href="#youtube">YouTube ↗</a>
+        </div>
+        <span>© 2026 ALEXORE</span>
+      </div>
+    </footer>
+    <script src="content.js">
+    </script>
+    <script src="writing-list.js">
+    </script>
+    <script src="detail.js">
+    </script>
+  </body>
+</html>

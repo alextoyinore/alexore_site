@@ -1,0 +1,17 @@
+# Local secrets and environment
+.env
+.env.*
+!.env.example
+alexore-config.php
+config.local.php
+
+# Runtime uploaded media and product files
+/uploads/*
+!/uploads/.htaccess
+!/uploads/index.html
+
+# Local editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
