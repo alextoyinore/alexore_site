@@ -187,12 +187,12 @@
               YOUR EMAIL ADDRESS
             </label>
             <div class="email-row">
-              <input id="email" type="email" placeholder="you@example.com" required>
+              <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Your email address" required>
               <button type="submit" aria-label="Subscribe">
                 Join the list <span>↗</span>
               </button>
             </div>
-            <small id="subscribeMessage">By subscribing, you agree to receive occasional notes. Unsubscribe anytime.</small>
+            <small id="subscribeMessage" aria-live="polite">By subscribing, you agree to receive occasional notes. Unsubscribe anytime.</small>
           </form>
         </div>
       </section>

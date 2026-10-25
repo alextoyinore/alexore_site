@@ -18,10 +18,15 @@ document.querySelectorAll('.main-nav a').forEach(link => {
 
 document.querySelector('#subscribeForm')?.addEventListener('submit', async event => {
   event.preventDefault();
-  const email = document.querySelector('#email').value.trim();
+  const form = event.currentTarget;
+  const emailInput = form.querySelector('#email');
+  const email = emailInput.value.trim();
   const message = document.querySelector('#subscribeMessage');
-  const button = event.currentTarget.querySelector('button[type="submit"]');
+  const button = form.querySelector('button[type="submit"]');
   button.disabled = true;
+  emailInput.disabled = true;
+  form.setAttribute('aria-busy', 'true');
+  message.textContent = 'Adding you to the list…';
   try {
     const response = await fetch('api/index.php?route=subscribe', {
       method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
@@ -30,9 +35,14 @@ document.querySelector('#subscribeForm')?.addEventListener('submit', async event
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Could not join the list.');
     message.textContent = result.message;
-    event.currentTarget.reset();
-  } catch (error) { message.textContent = `${error.message} Please try again soon.`; }
-  finally { button.disabled = false; }
+    form.reset();
+  } catch (error) {
+    message.textContent = `${error.message} Please try again soon.`;
+  } finally {
+    button.disabled = false;
+    emailInput.disabled = false;
+    form.removeAttribute('aria-busy');
+  }
 });
 
 fetch('api/index.php?route=articles', {headers:{'Accept':'application/json'}})

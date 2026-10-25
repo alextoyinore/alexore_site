@@ -15,6 +15,32 @@
 * {
   box-sizing:border-box
 }
+* {
+  scrollbar-width:none;
+  scrollbar-color:transparent transparent
+}
+*::-webkit-scrollbar {
+  width:0;
+  height:0
+}
+*:hover, *:focus-within {
+  scrollbar-width:thin;
+  scrollbar-color:rgba(17,22,25,.42) transparent
+}
+*:hover::-webkit-scrollbar, *:focus-within::-webkit-scrollbar {
+  width:8px;
+  height:8px
+}
+*::-webkit-scrollbar-thumb {
+  background:transparent;
+  border-radius:8px
+}
+*:hover::-webkit-scrollbar-thumb, *:focus-within::-webkit-scrollbar-thumb {
+  background:rgba(17,22,25,.42)
+}
+*::-webkit-scrollbar-track {
+  background:transparent
+}
 html {
   scroll-behavior:smooth
 }
@@ -643,6 +669,13 @@ a {
   padding:0 17px;
   font:600 10px var(--sans);
   cursor:pointer
+}
+.email-row button:disabled {
+  opacity:.6;
+  cursor:wait
+}
+.subscribe-form[aria-busy="true"] .email-row {
+  opacity:.7
 }
 .email-row button span {
   margin-left:17px

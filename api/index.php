@@ -217,7 +217,10 @@ if ($route === 'subscribe' && $method === 'POST') {
     if (!$email || strlen($email) > 254) respond(422, ['error' => 'Enter a valid email address.']);
     $statement = $pdo->prepare('INSERT IGNORE INTO subscribers (email) VALUES (?)');
     $statement->execute([$email]);
-    respond(200, ['ok' => true, 'message' => 'You’re on the list. Keep becoming.']);
+    $message = $statement->rowCount() === 1
+        ? 'You’re on the list. Keep becoming.'
+        : 'You’re already on the list. Keep becoming.';
+    respond(200, ['ok' => true, 'message' => $message]);
 }
 
 if ($route === 'content' && $method === 'GET') {
