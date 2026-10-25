@@ -206,7 +206,7 @@ a {
   height:415px;
   margin:0 0 0 20px;
   position:relative;
-  background:#d9eef3
+  background:#d9eef3;
   overflow:hidden
 }
 .art-sun {
@@ -587,7 +587,7 @@ a {
   color:#68797e
 }
 .newsletter-section {
-  background:#d9edf2
+  background:#d9edf2;
   padding:82px 0
 }
 .newsletter-inner {
