@@ -282,6 +282,7 @@ async function setView(view) {
   const titles = {
     overview:['Your studio.','A little space to make things that matter.'], writing:['Your writing.','Every idea, from first draft to published piece.'],
     audience:['Your community.','A growing circle of curious, thoughtful people.'],
+    about:['About page.','Manage the story, themes, and closing call to action on your About page.'],
     shop:['Books & products.','Upload and publish books and digital products.'], library:['Video & podcasts.','Publish episodes and videos for people to watch and listen to.'],
     products:['Shop page content.','Edit the introduction to your books and products storefront.'],
     media:['Media page content.','Edit the introduction to your video and podcast library.'], speaking:['Speaking page content.','Edit the public speaking page.'],
@@ -355,6 +356,35 @@ async function setView(view) {
       try { await api('settings', {method:'POST', data:values}); settings = {...settings, ...values}; toast('Shop page saved.'); }
       catch (error) { toast(error.message); }
     };
+  } else if (view === 'about') {
+    const defaults = {
+      about_hero_title:'Curiosity is a\nway of',
+      about_hero_emphasis:'living.',
+      about_intro:'I’m Ore — a tech educator, writer, and lifelong student of what makes a meaningful life. I make complex ideas feel human, and share what I’m learning along the way.',
+      about_section_title:'Learn, make,\nbecome.',
+      about_detail:'These pages are where my interests meet: technology and growth, ambition and faith, the work we do and the people we’re becoming.',
+      about_story_continued:'I move between teaching, writing, speaking, and making practical resources. Each is a way to take a question seriously, make room for thoughtful conversation, and turn what we learn into something useful.',
+      about_point1_title:'Technology, made human', about_point1_body:'Clear, people-first learning for a world shaped by AI.',
+      about_point2_title:'Ideas worth living', about_point2_body:'Notes on work, money, faith, growth, and becoming.',
+      about_point3_title:'Practice and possibility', about_point3_body:'Frameworks and tools that help ideas travel into everyday life.',
+      about_point4_title:'Better conversations', about_point4_body:'Space to think deeply about the future we are making together.',
+      about_bottom_title:'Keep becoming.',
+      about_bottom_body:'Follow along through the writing, or get an occasional note when there’s something new to share.'
+    };
+    const field = (key, label, rows = 3) => {
+      const current = key === 'about_intro' ? settings.about_intro || settings.intro : settings[key];
+      return `<label class="field-label">${label}<textarea name="${key}" rows="${rows}">${escapeHtml(current || defaults[key])}</textarea></label>`;
+    };
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">PAGE CONTENT</div><h2>Edit the About page</h2></div><a class="plain-link" href="about.html" target="_blank" rel="noopener">Preview About page ↗</a></div><p>Shape your introduction, the ideas behind your work, and the closing invitation. The page keeps its existing layout and visual style.</p><form id="aboutPageForm" class="products-form"><section class="products-editor-group"><div class="eyebrow">INTRODUCTION</div>${field('about_hero_title','HEADLINE',2)}<div class="field-row">${field('about_hero_emphasis','HIGHLIGHT WORD',1)}${field('about_intro','INTRODUCTION',4)}</div></section><section class="products-editor-group"><div class="eyebrow">YOUR STORY</div>${field('about_section_title','SECTION HEADING',2)}${field('about_detail','SECTION INTRODUCTION',3)}${field('about_story_continued','CONTINUED',4)}</section><section class="products-editor-group"><div class="eyebrow">WHAT MATTERS TO YOU</div>${[1,2,3,4].map(index => `<div class="field-row">${field(`about_point${index}_title`,`THEME ${index} TITLE`,2)}${field(`about_point${index}_body`,`THEME ${index} DESCRIPTION`,3)}</div>`).join('')}</section><section class="products-editor-group"><div class="eyebrow">CLOSING</div>${field('about_bottom_title','CLOSING HEADING',2)}${field('about_bottom_body','CLOSING COPY',3)}</section><div class="settings-actions"><button class="button button-dark" type="submit">Save About page <span>↗</span></button></div></form>`;
+    $('#aboutPageForm').onsubmit = async event => {
+      event.preventDefault();
+      const values = Object.fromEntries(new FormData(event.currentTarget));
+      try {
+        await api('settings', {method:'POST', data:values});
+        settings = {...settings, ...values};
+        toast('About page saved.');
+      } catch (error) { toast(error.message); }
+    };
   } else if (view === 'media' || view === 'speaking') {
     const media = view === 'media';
     const defaults = media ? {
@@ -382,7 +412,7 @@ async function setView(view) {
       catch (error) { toast(error.message); }
     };
   } else if (view === 'settings') {
-    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">MAKE IT YOURS</div><h2>Public profile & links</h2></div></div><p>Update homepage and About copy, plus your social links. Links appear in the public site footer when a valid URL is provided.</p><form id="settingsForm" class="settings-form"><label class="field-label">HOMEPAGE INTRODUCTION<textarea name="home_intro" rows="2" placeholder="Notes on work, money, becoming, and conversations that matter.">${escapeHtml(settings.home_intro || '')}</textarea></label><label class="field-label">ABOUT INTRODUCTION<textarea name="about_intro" rows="3">${escapeHtml(settings.about_intro || settings.intro || 'I’m Ore — a tech educator, writer, and lifelong student of what makes a meaningful life. I make complex ideas feel human, and share what I’m learning along the way.')}</textarea></label><label class="field-label">ABOUT CONTINUED<textarea name="about_detail" rows="3">${escapeHtml(settings.about_detail || 'These pages are where my interests meet: technology and growth, ambition and faith, the work we do and the people we’re becoming.')}</textarea></label><label class="field-label">WAYS TO CONNECT INTRODUCTION<textarea name="offers_intro" rows="2">${escapeHtml(settings.offers_intro || 'From the page to the stage to the classroom — here are a few ways we can connect.')}</textarea></label><div class="settings-grid">${[['x','X'],['medium','Medium'],['substack','Substack'],['linkedin','LinkedIn'],['youtube','YouTube']].map(([key,label]) => `<label class="field-label">${label.toUpperCase()} PROFILE URL<input name="${key}" type="url" placeholder="https://" value="${escapeHtml(settings[key] || '')}"></label>`).join('')}</div><div class="settings-actions"><button class="button button-dark" type="submit">Save site settings <span>↗</span></button><button class="button button-outline" type="button" id="exportAll">Download all data ↓</button></div></form>`;
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">MAKE IT YOURS</div><h2>Public profile & links</h2></div></div><p>Update your homepage introduction, ways to connect, and social links. Edit the full About page from the Page Content section.</p><form id="settingsForm" class="settings-form"><label class="field-label">HOMEPAGE INTRODUCTION<textarea name="home_intro" rows="2" placeholder="Notes on work, money, becoming, and conversations that matter.">${escapeHtml(settings.home_intro || '')}</textarea></label><label class="field-label">WAYS TO CONNECT INTRODUCTION<textarea name="offers_intro" rows="2">${escapeHtml(settings.offers_intro || 'From the page to the stage to the classroom — here are a few ways we can connect.')}</textarea></label><div class="settings-grid">${[['x','X'],['medium','Medium'],['substack','Substack'],['linkedin','LinkedIn'],['youtube','YouTube']].map(([key,label]) => `<label class="field-label">${label.toUpperCase()} PROFILE URL<input name="${key}" type="url" placeholder="https://" value="${escapeHtml(settings[key] || '')}"></label>`).join('')}</div><div class="settings-actions"><button class="button button-dark" type="submit">Save site settings <span>↗</span></button><button class="button button-outline" type="button" id="exportAll">Download all data ↓</button></div></form>`;
     $('#settingsForm').onsubmit = async event => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget)); try { await api('settings', {method:'POST', data:values}); settings = {...settings, ...values}; toast('Site settings saved.'); } catch (error) { toast(error.message); } };
     $('#exportAll').onclick = () => { downloadFile('alexore-site-backup.json', JSON.stringify({articles,subscribers,settings}, null, 2), 'application/json'); toast('Full site backup downloaded.'); };
   } else {
