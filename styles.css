@@ -417,10 +417,10 @@ a {
   margin-bottom:30px
 }
 .featured-art {
-  background:#d9eef3
-  position:relative;
+  background:#d9eef3;
+  position: relative;
   overflow:hidden;
-  min-height:365px
+  min-height:365px;
 }
 .sun-disc {
   position:absolute;
