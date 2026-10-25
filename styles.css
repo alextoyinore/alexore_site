@@ -1010,10 +1010,24 @@ a {
   .topbar {
     padding:0 18px
   }
+  .topbar {
+    display:grid;
+    grid-template-columns:40px minmax(0,1fr) 40px;
+    column-gap:8px
+  }
+  .wordmark {
+    grid-column:2;
+    grid-row:1;
+    justify-self:center;
+    white-space:nowrap
+  }
   .main-nav,.nav-cta {
     display:none
   }
   .menu-button {
+    grid-column:1;
+    grid-row:1;
+    justify-self:start;
     display:block
   }
   .main-nav.open {
@@ -1029,16 +1043,30 @@ a {
     gap:20px
   }
   .header-search {
-    order:2;
-    width:clamp(100px,34vw,160px);
-    border-bottom:1px solid #a6bdc2
+    grid-column:3;
+    grid-row:1;
+    justify-self:end;
+    position:static;
+    width:32px;
+    border:0
   }
   .header-search-toggle {
-    display:none
+    display:grid
   }
-  .header-search-field, .header-search.is-open .header-search-field {
+  .header-search-field {
+    position:absolute;
+    top:calc(100% + 8px);
+    right:18px;
+    z-index:12;
+    width:min(280px,calc(100vw - 36px));
+    padding:8px 10px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    box-shadow:0 12px 30px #1017191c
+  }
+  .header-search.is-open .header-search-field {
     display:flex;
-    width:100%;
+    width:min(280px,calc(100vw - 36px));
     overflow:visible;
     visibility:visible;
     gap:4px
@@ -1049,6 +1077,9 @@ a {
   }
   .header-search-close {
     display:none
+  }
+  .header-search.is-open .header-search-close {
+    display:grid
   }
   .hero {
     display:flex;

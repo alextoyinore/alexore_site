@@ -1,5 +1,4 @@
 const headerSearchForms = document.querySelectorAll('.header-search');
-const mobileHeaderSearch = window.matchMedia('(max-width: 600px)');
 
 headerSearchForms.forEach(form => {
   const toggle = form.querySelector('.header-search-toggle');
@@ -29,7 +28,7 @@ headerSearchForms.forEach(form => {
   });
 
   form.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && form.classList.contains('is-open') && !mobileHeaderSearch.matches) {
+    if (event.key === 'Escape' && form.classList.contains('is-open')) {
       event.preventDefault();
       setOpen(false);
       toggle.focus();
@@ -37,7 +36,7 @@ headerSearchForms.forEach(form => {
   });
 
   document.addEventListener('pointerdown', event => {
-    if (!mobileHeaderSearch.matches && form.classList.contains('is-open') && !form.contains(event.target)) {
+    if (form.classList.contains('is-open') && !form.contains(event.target)) {
       setOpen(false);
     }
   });
