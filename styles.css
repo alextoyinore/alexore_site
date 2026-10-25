@@ -1054,6 +1054,7 @@ a {
     display:grid
   }
   .header-search-field {
+    display:none;
     position:absolute;
     top:calc(100% + 8px);
     right:18px;
@@ -1118,10 +1119,8 @@ a {
     margin-bottom:27px
   }
   .featured-post {
-    grid-template-columns:1fr
-  }
- {
-    min-height:260px
+    grid-template-columns:1fr;
+    min-height:260px;
   }
   .featured-copy {
     padding:29px 24px 33px
