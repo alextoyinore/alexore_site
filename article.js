@@ -51,7 +51,12 @@ function renderArticle(item) {
     hero.style.backgroundSize = 'cover'; hero.style.backgroundPosition = 'center'; hero.classList.add('has-cover');
   }
   if (!item.sample) setupArticleEngagement(item);
-  else root.querySelector('.article-engagement').hidden = true;
+  else {
+    root.querySelector('#articleLikeButton').disabled = true;
+    root.querySelector('#articleCommentList').innerHTML = '<p class="comment-empty">This is a sample article. Publish it from Studio to enable reader comments and likes.</p>';
+    root.querySelectorAll('#articleCommentForm input, #articleCommentForm textarea, #articleCommentForm button').forEach(control => { control.disabled = true; });
+    root.querySelector('#commentMessage').textContent = 'Comments and likes will open when this article is published.';
+  }
 }
 
 function getVisitorId() {
