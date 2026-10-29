@@ -12,7 +12,7 @@
     <style>
       .article-wrap {
         width:min(760px,calc(100% - 40px));
-        margin:85px auto 110px
+        margin:30px auto 110px
       }
       .article-back {
         font-size:11px;
@@ -28,19 +28,12 @@
       .article-hero {
         margin:0 0 35px;
         padding:40px;
-        background:#d9eef3
+        background:#d9eef3;
         min-height:180px;
         position:relative;
         overflow:hidden
       }
-      .article-hero:after {
-        content:'✳';
-        position:absolute;
-        right:35px;
-        top:4px;
-        font-size:150px;
-        color:#a4d7e3
-      }
+
       .article-meta {
         font:9px var(--mono);
         letter-spacing:.1em;
@@ -56,8 +49,8 @@
         max-width:690px;
         margin:26px 0 34px;
         padding:20px 25px 22px;
-        background:#eaf4f6;
-        border-left:2px solid #6eb9ce;
+        background: #eaf0f6;
+        border-left: 2px solid #6e96ce;
         color:#68797e;
         font:italic clamp(16px, 1rem + .3vw, 18px)/1.55 var(--serif)
       }
@@ -117,7 +110,7 @@
         text-transform:uppercase
       }
       .article-body a {
-        color:#43899b
+        color:#43899b;
         text-decoration:underline
       }
       .article-bottom {
@@ -127,6 +120,109 @@
         display:flex;
         justify-content:space-between;
         font-size:11px
+      }
+      .article-engagement {
+        margin-top:52px;
+        padding:26px;
+        background:#f0f7f8;
+        border:1px solid #deeaec
+      }
+      .article-like-row {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:16px;
+        padding-bottom:22px;
+        border-bottom:1px solid #d8e5e8
+      }
+      .article-like-row p,.comments-heading p {
+        margin:5px 0 0;
+        color:#75868b;
+        font-size:11px
+      }
+      .article-like-button {
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:10px 14px;
+        border:1px solid #bfd5da;
+        border-radius:30px;
+        background:#fff;
+        color:#28393d;
+        font:11px var(--sans);
+        cursor:pointer
+      }
+      .article-like-button[aria-pressed="true"] {
+        background:#d9eef3;
+        border-color:#9ecdd8;
+        color:#356f7d
+      }
+      .comments-section { padding-top:24px }
+      .comments-heading {
+        display:flex;
+        align-items:end;
+        justify-content:space-between;
+        gap:16px;
+        margin-bottom:16px
+      }
+      .comments-heading h2 {
+        margin:0;
+        font:500 25px/1.2 var(--serif)
+      }
+      .comment-list { display:grid; gap:10px }
+      .comment-item {
+        padding:14px 16px;
+        background:#fff;
+        border:1px solid #e3ecee
+      }
+      .comment-item header {
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        color:#52676d;
+        font:9px var(--mono);
+        text-transform:uppercase
+      }
+      .comment-item p {
+        margin:8px 0 0;
+        white-space:pre-wrap;
+        overflow-wrap:anywhere;
+        font-size:13px;
+        line-height:1.7
+      }
+      .comment-empty { padding:16px; color:#829196; font-size:11px; background:#fff }
+      .comment-form { display:grid; gap:12px; margin-top:20px }
+      .comment-form h3 { margin:0; font:500 21px var(--serif) }
+      .comment-form>p,.comment-form small { margin:0; color:#75868b; font-size:10px; line-height:1.6 }
+      .comment-form label { display:grid; gap:6px; color:#62757a; font:9px var(--mono); letter-spacing:.06em }
+      .comment-form input,.comment-form textarea {
+        width:100%;
+        padding:11px 12px;
+        border:1px solid #d5e2e4;
+        background:#fff;
+        color:#172125;
+        font:12px/1.6 var(--sans)
+      }
+      .comment-form textarea { min-height:110px; resize:vertical }
+      .comment-form .comment-check {
+        display:flex;
+        align-items:flex-start;
+        gap:8px;
+        font:10px/1.5 var(--sans);
+        letter-spacing:0;
+        color:#52676d
+      }
+      .comment-check input { width:auto; margin:2px 0 0; accent-color:#68b4c4 }
+      .comment-form .button { justify-self:start; cursor:pointer }
+      .comment-message { min-height:16px; color:#477b65!important }
+      .comment-error { color:#a24a4a!important }
+      @media(max-width:600px) {
+        .article-engagement { margin-top:36px; padding:17px 14px }
+        .article-like-row { align-items:flex-start; flex-direction:column; gap:12px; padding-bottom:16px }
+        .comments-heading { align-items:flex-start; flex-direction:column; gap:8px }
+        .comments-heading h2 { font-size:23px }
+        .comment-item { padding:12px }
+        .article-bottom { gap:18px; align-items:flex-start; flex-wrap:wrap }
       }
       .article-not-found {
         text-align:center;
@@ -158,13 +254,14 @@
     </main>
     <footer class="footer">
       <div class="page-width footer-inner">
-        <a class="wordmark" href="index.html"><span class="mark">a</span><span>ALEXORE<span class="wordmark-dot">.</span></span></a><span>Made with intention in Lagos, Nigeria.</span>
+        <a class="wordmark" href="index.html"><span class="mark">a</span><span>ALEXORE<span class="wordmark-dot">.</span></span></a>
         <nav class="footer-pages" aria-label="More pages">
           <a href="products.html">Books & tools</a><a href="media.html">Video & podcast</a><a href="teaching.html">Teaching</a><a href="speaking.html">Speaking</a><a href="studio.html">Studio</a>
         </nav>
         <div class="footer-socials">
           <a data-social="x" href="#x">X ↗</a><a data-social="medium" href="#medium">Medium ↗</a><a data-social="substack" href="#substack">Substack ↗</a><a data-social="linkedin" href="#linkedin">LinkedIn ↗</a><a data-social="youtube" href="#youtube">YouTube ↗</a>
         </div>
+        <span>Made with intention in Lagos, Nigeria.</span>
         <span>© 2026 ALEXORE</span>
       </div>
     </footer>

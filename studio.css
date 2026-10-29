@@ -578,6 +578,42 @@
   font:8px var(--mono);
   color:#889598
 }
+.moderation-comment {
+  padding:16px 0;
+  border-top:1px solid #e8eeee
+}
+.moderation-comment-head,.moderation-comment-actions {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px
+}
+.moderation-comment-head {
+  font-size:10px
+}
+.moderation-comment-head a {
+  color:#4e8793
+}
+.moderation-comment-head small {
+  flex:0 0 auto;
+  color:#889598;
+  font:8px var(--mono)
+}
+.moderation-comment>p {
+  margin:10px 0;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  color:#53656a;
+  font-size:11px;
+  line-height:1.7
+}
+.moderation-comment-actions {
+  justify-content:flex-end
+}
+.moderate-comment:disabled {
+  opacity:.5;
+  cursor:wait
+}
 .empty-state {
   padding:33px;
   text-align:center;

@@ -125,6 +125,33 @@ try { $pdo->exec("CREATE TABLE IF NOT EXISTS content_items (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"); }
 catch (Throwable $error) { $contentSchemaReady = false; error_log('alexore content table setup failed: ' . $error->getMessage()); }
 
+$engagementSchemaReady = true;
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS article_likes (
+        article_id BIGINT UNSIGNED NOT NULL,
+        visitor_hash CHAR(64) NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (article_id, visitor_hash),
+        CONSTRAINT fk_article_likes_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS article_comments (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        article_id BIGINT UNSIGNED NOT NULL,
+        display_name VARCHAR(120) NOT NULL DEFAULT 'Anonymous',
+        email VARCHAR(254) NULL,
+        is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
+        comment_text TEXT NOT NULL,
+        status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_article_comments_public (article_id, status, created_at),
+        INDEX idx_article_comments_moderation (status, created_at),
+        CONSTRAINT fk_article_comments_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+} catch (Throwable $error) {
+    $engagementSchemaReady = false;
+    error_log('alexore engagement tables setup failed: ' . $error->getMessage());
+}
+
 $route = $_GET['route'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -223,6 +250,104 @@ if ($route === 'subscribe' && $method === 'POST') {
     respond(200, ['ok' => true, 'message' => $message]);
 }
 
+if ($route === 'comments' && $method === 'GET') {
+    if (!$engagementSchemaReady) respond(503, ['error' => 'Comments are not available until the database tables can be created.']);
+    if (($_GET['include'] ?? '') === 'all') {
+        require_admin();
+        $rows = $pdo->query("SELECT c.id, c.article_id AS articleId, a.slug, a.title AS articleTitle, c.display_name AS displayName, c.is_anonymous AS isAnonymous, c.comment_text AS commentText, c.status, DATE_FORMAT(c.created_at, '%b %e, %Y') AS date FROM article_comments c JOIN articles a ON a.id=c.article_id ORDER BY FIELD(c.status,'pending','approved','rejected'), c.created_at DESC")->fetchAll();
+        respond(200, ['comments' => $rows]);
+    }
+    $slug = trim((string) ($_GET['slug'] ?? ''));
+    $statement = $pdo->prepare("SELECT c.display_name AS displayName, c.is_anonymous AS isAnonymous, c.comment_text AS commentText, DATE_FORMAT(c.created_at, '%b %e, %Y') AS date FROM article_comments c JOIN articles a ON a.id=c.article_id WHERE a.slug=? AND a.status='published' AND c.status='approved' ORDER BY c.created_at ASC LIMIT 200");
+    $statement->execute([$slug]);
+    respond(200, ['comments' => $statement->fetchAll()]);
+}
+if ($route === 'comments' && $method === 'POST') {
+    if (!$engagementSchemaReady) respond(503, ['error' => 'Comments are not available until the database tables can be created.']);
+    $input = body_json();
+    if (!empty($input['moderate'])) {
+        require_admin(); require_csrf();
+        $id = filter_var($input['id'] ?? null, FILTER_VALIDATE_INT);
+        $status = (string) ($input['status'] ?? '');
+        if (!$id || !in_array($status, ['approved','rejected'], true)) respond(422, ['error' => 'Choose a valid moderation action.']);
+        $pdo->prepare('UPDATE article_comments SET status=? WHERE id=?')->execute([$status, $id]);
+        respond(200, ['ok' => true]);
+    }
+    $slug = trim((string) ($input['slug'] ?? ''));
+    $articleQuery = $pdo->prepare("SELECT id FROM articles WHERE slug=? AND status='published' LIMIT 1");
+    $articleQuery->execute([$slug]);
+    $articleId = $articleQuery->fetchColumn();
+    if (!$articleId) respond(404, ['error' => 'This article is not available for comments.']);
+    $comment = trim((string) ($input['comment'] ?? ''));
+    if ($comment === '' || mb_strlen($comment) > 3000) respond(422, ['error' => 'Write a comment up to 3,000 characters.']);
+    $anonymous = !empty($input['anonymous']);
+    $name = $anonymous ? 'Anonymous' : trim((string) ($input['name'] ?? ''));
+    $email = null;
+    if (!$anonymous) {
+        if ($name === '' || mb_strlen($name) > 120) respond(422, ['error' => 'Add your name, or choose anonymous commenting.']);
+        $email = filter_var(trim((string) ($input['email'] ?? '')), FILTER_VALIDATE_EMAIL);
+        if (!$email || strlen($email) > 254) respond(422, ['error' => 'Enter a valid email address, or choose anonymous commenting.']);
+    }
+    if ((int) ($_SESSION['last_comment_at'] ?? 0) > time() - 20) respond(429, ['error' => 'Please wait a moment before posting another comment.']);
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare('INSERT INTO article_comments (article_id, display_name, email, is_anonymous, comment_text, status) VALUES (?, ?, ?, ?, ?, \'pending\')')->execute([$articleId, $name, $email, $anonymous ? 1 : 0, $comment]);
+        $subscribed = false;
+        if (!$anonymous && !empty($input['newsletter'])) {
+            $subscribe = $pdo->prepare('INSERT IGNORE INTO subscribers (email) VALUES (?)');
+            $subscribe->execute([$email]);
+            $subscribed = true;
+        }
+        $pdo->commit();
+        $_SESSION['last_comment_at'] = time();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $error;
+    }
+    respond(201, ['ok' => true, 'message' => $subscribed ? 'Comment submitted for review, and you’re on the mailing list.' : 'Comment submitted for review.']);
+}
+
+if ($route === 'like' && $method === 'GET') {
+    if (!$engagementSchemaReady) respond(503, ['error' => 'Likes are not available until the database tables can be created.']);
+    $slug = trim((string) ($_GET['slug'] ?? ''));
+    $visitorId = (string) ($_GET['visitorId'] ?? '');
+    if (!preg_match('/^[a-f0-9-]{32,64}$/i', $visitorId)) respond(422, ['error' => 'Refresh the page and try again.']);
+    $articleQuery = $pdo->prepare("SELECT id FROM articles WHERE slug=? AND status='published' LIMIT 1");
+    $articleQuery->execute([$slug]);
+    $articleId = $articleQuery->fetchColumn();
+    if (!$articleId) respond(404, ['error' => 'This article is not available for likes.']);
+    $visitorHash = hash('sha256', strtolower($visitorId));
+    $likedQuery = $pdo->prepare('SELECT 1 FROM article_likes WHERE article_id=? AND visitor_hash=?');
+    $likedQuery->execute([$articleId, $visitorHash]);
+    $countQuery = $pdo->prepare('SELECT COUNT(*) FROM article_likes WHERE article_id=?');
+    $countQuery->execute([$articleId]);
+    respond(200, ['liked' => (bool) $likedQuery->fetchColumn(), 'count' => (int) $countQuery->fetchColumn()]);
+}
+if ($route === 'like' && $method === 'POST') {
+    if (!$engagementSchemaReady) respond(503, ['error' => 'Likes are not available until the database tables can be created.']);
+    $input = body_json();
+    $slug = trim((string) ($input['slug'] ?? ''));
+    $visitorId = (string) ($input['visitorId'] ?? '');
+    if (!preg_match('/^[a-f0-9-]{32,64}$/i', $visitorId)) respond(422, ['error' => 'Refresh the page and try again.']);
+    $articleQuery = $pdo->prepare("SELECT id FROM articles WHERE slug=? AND status='published' LIMIT 1");
+    $articleQuery->execute([$slug]);
+    $articleId = $articleQuery->fetchColumn();
+    if (!$articleId) respond(404, ['error' => 'This article is not available for likes.']);
+    $visitorHash = hash('sha256', strtolower($visitorId));
+    $check = $pdo->prepare('SELECT 1 FROM article_likes WHERE article_id=? AND visitor_hash=?');
+    $check->execute([$articleId, $visitorHash]);
+    if ($check->fetchColumn()) {
+        $pdo->prepare('DELETE FROM article_likes WHERE article_id=? AND visitor_hash=?')->execute([$articleId, $visitorHash]);
+        $liked = false;
+    } else {
+        $pdo->prepare('INSERT IGNORE INTO article_likes (article_id, visitor_hash) VALUES (?, ?)')->execute([$articleId, $visitorHash]);
+        $liked = true;
+    }
+    $count = $pdo->prepare('SELECT COUNT(*) FROM article_likes WHERE article_id=?');
+    $count->execute([$articleId]);
+    respond(200, ['liked' => $liked, 'count' => (int) $count->fetchColumn()]);
+}
+
 if ($route === 'content' && $method === 'GET') {
     if (!$contentSchemaReady) respond(503, ['error'=>'The content library table is unavailable. Run api/migrate-content-items.sql or grant the database account CREATE TABLE permission.']);
     $admin = !empty($_SESSION['alexore_admin']) && ($_GET['include'] ?? '') === 'all';
@@ -300,6 +425,13 @@ if ($route === 'article' && $method === 'GET') {
     $article = $statement->fetch();
     if (!$article) respond(404, ['error' => 'Article not found.']);
     $article['read'] = article_reading_time((string) $article['body']);
+    $article['likeCount'] = 0;
+    $article['commentCount'] = 0;
+    if ($engagementSchemaReady) {
+        $counts = $pdo->prepare("SELECT (SELECT COUNT(*) FROM article_likes WHERE article_id=?) AS likeCount, (SELECT COUNT(*) FROM article_comments WHERE article_id=? AND status='approved') AS commentCount");
+        $counts->execute([$article['id'], $article['id']]);
+        $article = array_merge($article, $counts->fetch() ?: []);
+    }
     respond(200, ['article' => $article]);
 }
 if ($route === 'articles' && $method === 'POST') {

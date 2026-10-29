@@ -282,6 +282,7 @@ async function setView(view) {
   const titles = {
     overview:['Your studio.','A little space to make things that matter.'], writing:['Your writing.','Every idea, from first draft to published piece.'],
     audience:['Your community.','A growing circle of curious, thoughtful people.'],
+    comments:['Reader comments.','Review comments before they appear beneath your writing.'],
     about:['About page.','Manage the story, themes, and closing call to action on your About page.'],
     shop:['Books & products.','Upload and publish books and digital products.'], library:['Video & podcasts.','Publish episodes and videos for people to watch and listen to.'],
     products:['Shop page content.','Edit the introduction to your books and products storefront.'],
@@ -298,6 +299,16 @@ async function setView(view) {
   } else if (view === 'audience') {
     panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">YOUR EMAIL COMMUNITY</div><h2>${subscribers.length} subscribers</h2></div><button class="plain-link" id="exportSubscribers">Download CSV ↓</button></div><p>Subscriber emails are stored in your site database. Connect an email service when you’re ready to send newsletters.</p>${subscribers.length ? `<div class="detail-list">${subscribers.map(row => `<div class="detail-row">${escapeHtml(row.email)}<small>${escapeHtml(row.date)}</small></div>`).join('')}</div>` : '<div class="empty-state">Your first subscriber will appear here.</div>'}`;
     $('#exportSubscribers').onclick = () => { const csv = 'email\r\n' + subscribers.map(row => `"${row.email.replaceAll('"','""')}"`).join('\r\n'); downloadFile('alexore-subscribers.csv', csv, 'text/csv'); toast('Subscriber list downloaded.'); };
+  } else if (view === 'comments') {
+    const result = await api('comments', {query:{include:'all'}});
+    const comments = result.comments || [];
+    const pendingCount = comments.filter(comment => comment.status === 'pending').length;
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">READER CONVERSATION</div><h2>${pendingCount} awaiting review</h2></div></div><p>Comments stay private until approved. Reader email addresses are never shown here or published.</p>${comments.length ? `<div class="detail-list">${comments.map(comment => `<article class="moderation-comment"><div class="moderation-comment-head"><span><b>${escapeHtml(comment.isAnonymous ? 'Anonymous' : comment.displayName)}</b> on <a href="article.html?slug=${encodeURIComponent(comment.slug)}" target="_blank" rel="noopener">${escapeHtml(comment.articleTitle)}</a></span><small>${escapeHtml(comment.status.toUpperCase())} · ${escapeHtml(comment.date)}</small></div><p>${escapeHtml(comment.commentText)}</p><div class="moderation-comment-actions"><button class="plain-link moderate-comment" data-id="${comment.id}" data-status="${comment.status === 'approved' ? 'rejected' : 'approved'}">${comment.status === 'approved' ? 'Hide comment' : 'Approve comment'}</button></div></article>`).join('')}</div>` : '<div class="empty-state">No comments yet. Reader responses will appear here for review.</div>'}`;
+    panel.querySelectorAll('.moderate-comment').forEach(button => button.onclick = async () => {
+      button.disabled = true;
+      try { await api('comments', {method:'POST', data:{moderate:true, id:button.dataset.id, status:button.dataset.status}}); await setView('comments'); toast(button.dataset.status === 'approved' ? 'Comment approved.' : 'Comment hidden.'); }
+      catch (error) { button.disabled = false; toast(error.message); }
+    });
   } else if (view === 'shop' || view === 'library') {
     const shop = view === 'shop';
     const types = shop ? ['book','product'] : ['video','podcast'];

@@ -16,6 +16,8 @@ For an existing local database created before admin display names were added, ru
 
 The content library table is created automatically on the first API request. If your database account cannot create tables, run `api/migrate-content-items.sql` once in phpMyAdmin.
 
+Article comments and likes are also created automatically for existing databases. If the database account cannot create tables, run `api/migrate-article-engagement.sql` once in phpMyAdmin.
+
 4. Create the first admin account from PowerShell in the project folder:
 
 ```powershell
@@ -44,6 +46,8 @@ To create the first dashboard account, set `ALEXORE_ADMIN_PASSWORD` in the Power
 - PHP API and MySQL schema for articles, subscriber emails, and public profile links.
 - Studio password login, server-side sessions, CSRF checks, and public article pages backed by MySQL.
 - Published articles appear on a dedicated writing list page with individual reading pages.
+- Readers can like articles and leave named or anonymous comments without creating accounts. Comments are held for Studio moderation; newsletter signup from the comment form is optional and requires explicit consent.
+- Studio includes a Comments queue for approving or hiding reader comments. Comment emails remain private.
 - Dashboard libraries for books and downloadable products, plus videos and podcasts. Add hosted watch/listen URLs; upload product files as PDF, EPUB, ZIP, or DOCX (up to 25 MB, subject to PHP's upload limits).
 - Books and products appear in the public shop; paid items should link to an external checkout URL. The site does not process payments itself.
 - Videos and podcasts appear in the public media library with watch/listen detail pages.
@@ -57,6 +61,7 @@ To create the first dashboard account, set `ALEXORE_ADMIN_PASSWORD` in the Power
 1. In cPanel’s Database Wizard, create a MySQL database and a dedicated user with access to it.
 2. Import `api/schema.sql` into that database with phpMyAdmin.
    If the production database user cannot create tables, also import `api/migrate-content-items.sql`.
+   If the production database user cannot create tables, also import `api/migrate-article-engagement.sql`.
 3. Copy `api/config.example.php` to `~/alexore-config.php` (outside `public_html`) and enter the database credentials.
 4. From the hosting account’s command line, set `ALEXORE_ADMIN_PASSWORD` and run `php public_html/api/create-admin.php alexore` to create your first admin login. The password is stored as a hash in the `users` table.
 5. Upload the files into the domain’s document root. Select a current PHP version with PDO MySQL enabled and enable HTTPS.
