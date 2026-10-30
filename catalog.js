@@ -1,3 +1,4 @@
+// Public catalog renderer for books, products, videos, and podcast episodes.
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const tagsOf = item => String(item.tags || '').split(',').map(tag => tag.trim()).filter(Boolean);
 const labels = {book:'BOOK',product:'DIGITAL PRODUCT',video:'VIDEO',podcast:'PODCAST'};

@@ -32,3 +32,4 @@ fetch('api/index.php?route=settings', {headers:{'Accept':'application/json'}})
     else node.textContent = value.trim();
   }))
   .catch(() => {});
+// Shared behavior for detail pages: active navigation, responsive menu state, and editable site settings.

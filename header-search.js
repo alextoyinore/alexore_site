@@ -41,3 +41,4 @@ headerSearchForms.forEach(form => {
     }
   });
 });
+// Header search disclosure: open, submit, and dismiss the compact search field.

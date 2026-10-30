@@ -1246,13 +1246,10 @@ a {
 .post-art[style*="background-image"]>span,.post-art[style*="background-image"]>b {
   position:relative;
   z-index:2;
-  text-shadow:0 1px 5px #14202480
 }
 .article-hero.has-cover .article-meta {
   position:relative;
   z-index:2;
-  color:white;
-  text-shadow:0 1px 5px #14202480
 }
 .article-body img {
   display:block;
@@ -1272,8 +1269,6 @@ a {
 .featured-art.has-cover>span,.featured-art.has-cover>b {
   position:relative;
   z-index:2;
-  color:#fff;
-  text-shadow:0 1px 5px #14202480
 }
 .featured-art.has-cover>b {
   float:right;
@@ -3616,6 +3611,69 @@ body {
   padding-left: 4px;
 }
 
+.article-share {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 10px 22px;
+  max-width: 760px;
+  margin: 18px auto 0;
+  padding: 17px 0 20px;
+  border-top: 1px solid #d9e4e5;
+}
+
+.article-share-heading .eyebrow {
+  color: #688187;
+  font: 9px var(--mono);
+  letter-spacing: .12em;
+}
+
+.article-share-heading p {
+  margin: 6px 0 0;
+  color: #718185;
+  font-size: 12px;
+}
+
+.article-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.article-share-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid #d2dedf;
+  background: transparent;
+  color: #45666d;
+  font: 11px var(--sans);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.article-share-action:hover,
+.article-share-action:focus-visible {
+  border-color: #829fa4;
+  color: #172125;
+}
+
+.article-share-action[hidden] {
+  display: none;
+}
+
+.article-share-status {
+  grid-column: 2;
+  min-height: 1em;
+  margin: -7px 0 0;
+  color: #718185;
+  font-size: 11px;
+}
+
 .article-engagement {
   max-width: 760px;
   margin: 0 auto;
@@ -3659,8 +3717,8 @@ body {
   align-items: center;
   gap: 8px;
   padding: 10px 13px;
-  border: 1px solid #cbdadb;
-  background: #f7f9f7;
+  border: 0 solid transparent;
+  background: transparent;
   color: #45666d;
   font: 11px var(--mono);
   cursor: pointer;
@@ -3896,6 +3954,20 @@ p {
 
   .article-engagement {
     padding: 16px 0;
+  }
+
+  .article-share {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .article-share-actions {
+    justify-content: flex-start;
+  }
+
+  .article-share-status {
+    grid-column: 1;
+    margin-top: -10px;
   }
 
   .article-like-row,

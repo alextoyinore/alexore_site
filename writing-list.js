@@ -21,3 +21,4 @@ fetch('api/index.php?route=articles')
   .then(response => response.json())
   .then(({articles: published = []}) => { articles = published; renderWriting(); })
   .catch(() => { articles = window.ALEXORE_CONTENT?.articles || []; renderWriting(); });
+// Writing archive: fetch published articles and filter the list as the reader types.

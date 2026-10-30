@@ -1,9 +1,11 @@
+// Article detail behavior: render published content, build sharing links, and manage reader reactions/comments.
 const root = document.querySelector('#articleRoot');
 const slug = new URLSearchParams(location.search).get('slug');
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const allowedTags = new Set(['P','H2','H3','BLOCKQUOTE','UL','OL','LI','STRONG','B','EM','I','U','A','BR','HR','IMG']);
 
 function cleanArticleHtml(html) {
+  // Allow a small set of editorial elements and strip attributes that could execute injected code.
   const documentFragment = new DOMParser().parseFromString(html || '', 'text/html');
   const cleanNode = node => [...node.children].forEach(child => {
     if (!allowedTags.has(child.tagName)) { child.replaceWith(...child.childNodes); return; }
@@ -28,6 +30,66 @@ function articleReadingTime(html = '') {
   return `${Math.max(1, Math.ceil(words.length / 220))} min read`;
 }
 
+function setupArticleSharing(item) {
+  // Use direct share URLs so each service works even where the browser share sheet is unavailable.
+  const articleBody = root.querySelector('.article-body');
+  if (!articleBody) return;
+
+  const shareSection = document.createElement('section');
+  shareSection.className = 'article-share';
+  shareSection.setAttribute('aria-label', 'Share this article');
+  shareSection.innerHTML = `<div class="article-share-heading"><div class="eyebrow">PASS IT ALONG</div><p>Share this story with someone.</p></div><div class="article-share-actions" aria-label="Share options"><button class="article-share-action" type="button" data-share-native>Share…</button><button class="article-share-action" type="button" data-share-copy>Copy link</button><a class="article-share-action" data-share="whatsapp" target="_blank" rel="noopener noreferrer">WhatsApp</a><a class="article-share-action" data-share="telegram" target="_blank" rel="noopener noreferrer">Telegram</a><a class="article-share-action" data-share="x" target="_blank" rel="noopener noreferrer">X</a><a class="article-share-action" data-share="facebook" target="_blank" rel="noopener noreferrer">Facebook</a><a class="article-share-action" data-share="linkedin" target="_blank" rel="noopener noreferrer">LinkedIn</a><a class="article-share-action" data-share="email">Email</a></div><p class="article-share-status" role="status" aria-live="polite"></p>`;
+  articleBody.after(shareSection);
+
+  const shareUrl = new URL(location.href);
+  shareUrl.hash = '';
+  const url = shareUrl.toString();
+  const title = item.title || document.title;
+  const text = `${title} — ${url}`;
+  const encodedUrl = encodeURIComponent(url);
+  const encodedTitle = encodeURIComponent(title);
+  const encodedText = encodeURIComponent(text);
+  const targets = {
+    whatsapp: `https://wa.me/?text=${encodedText}`,
+    telegram: `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`,
+    x: `https://twitter.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+    linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+    email: `mailto:?subject=${encodedTitle}&body=${encodedText}`,
+  };
+  shareSection.querySelectorAll('[data-share]').forEach(link => {
+    link.href = targets[link.dataset.share];
+  });
+
+  const nativeButton = shareSection.querySelector('[data-share-native]');
+  const status = shareSection.querySelector('.article-share-status');
+  if (!navigator.share) nativeButton.hidden = true;
+  nativeButton.addEventListener('click', async () => {
+    try { await navigator.share({title, text: item.deck || '', url}); }
+    catch (error) { if (error.name !== 'AbortError') status.textContent = 'Sharing could not be opened.'; }
+  });
+  shareSection.querySelector('[data-share-copy]').addEventListener('click', async event => {
+    const copyButton = event.currentTarget;
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(url);
+      else {
+        const field = document.createElement('textarea');
+        field.value = url;
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        document.body.append(field);
+        field.select();
+        const copied = document.execCommand('copy');
+        field.remove();
+        if (!copied) throw new Error('Copy failed');
+      }
+      status.textContent = 'Link copied.';
+      copyButton.textContent = 'Copied';
+      setTimeout(() => { copyButton.textContent = 'Copy link'; }, 1800);
+    } catch { status.textContent = 'Could not copy the link. Select and copy the page address instead.'; }
+  });
+}
+
 function sampleCoverMarkup(slug) {
   const covers = {
     'the-quiet-courage-of-starting-again': '<div class="article-cover-art article-cover-featured featured-art"><div class="sun-disc"></div><div class="feature-shape shape-a"></div><div class="feature-shape shape-b"></div><div class="feature-shape shape-c"></div><span>FIELD NOTES<br>NO. 001</span><b>✳</b></div>',
@@ -47,9 +109,10 @@ function renderArticle(item) {
   root.innerHTML = `<article class="article-wrap"><a class="article-back" href="writing.html">← Back to the notebook</a>${item.sample ? '<p class="article-sample-note">SAMPLE ARTICLE · PREVIEW CONTENT</p>' : ''}<div class="article-meta article-meta-top"><a href="browse.html?category=${encodeURIComponent(item.category)}">${escapeHtml(item.category).toUpperCase()}</a> · ${escapeHtml(readingTime).toUpperCase()} · ${escapeHtml(item.date)}</div><div class="article-hero ${sampleCover ? 'has-sample-art' : ''}">${sampleCover}</div><div class="article-meta">ALEXORE · ${escapeHtml(item.date).toUpperCase()}</div><h1>${escapeHtml(item.title)}</h1><p class="article-deck">${escapeHtml(item.deck)}</p>${tags.length ? `<div class="article-tags" aria-label="Article tags">${tags.map(tag => `<a href="browse.html?tag=${encodeURIComponent(tag)}">${escapeHtml(tag)}</a>`).join('')}</div>` : ''}<div class="article-body">${cleanArticleHtml(item.body || '<p>This story is just getting started.</p>')}</div><section class="article-engagement" aria-label="Article reactions and comments"><div class="article-like-row"><div><div class="eyebrow">A NOTE BACK</div><p>If this stayed with you, leave a little appreciation.</p></div><button class="article-like-button" id="articleLikeButton" type="button" aria-pressed="false"><span aria-hidden="true">♡</span><span id="articleLikeCount">${Number(item.likeCount) || 0} likes</span></button></div><div class="comments-section"><div class="comments-heading"><div><h2>Join the conversation</h2><p>No account needed. Comments are reviewed before they appear.</p></div><span class="eyebrow" id="articleCommentCount">${Number(item.commentCount) || 0} COMMENTS</span></div><div class="comment-list" id="articleCommentList" aria-live="polite"><p class="comment-empty">Loading comments…</p></div><form class="comment-form" id="articleCommentForm"><h3>Leave a comment</h3><p>Share a thoughtful response. Your email will stay private.</p><label class="comment-check"><input type="checkbox" name="anonymous"> <span>Comment anonymously</span></label><div id="commentIdentity"><label>Your name<input name="name" autocomplete="name" maxlength="120" required></label><label>Email address<input name="email" type="email" autocomplete="email" maxlength="254" required></label><label class="comment-check"><input type="checkbox" name="newsletter"> <span>Also add me to the occasional email newsletter.</span></label></div><label>Your comment<textarea name="comment" maxlength="3000" required></textarea></label><small>Up to 3,000 characters. No links or HTML are needed.</small><button class="button button-dark" type="submit">Post comment <span>↗</span></button><p class="comment-message" id="commentMessage" role="status"></p></form></div></section><div class="article-bottom"><a href="writing.html">← More writing</a><a href="index.html#newsletter">Get the notes ↗</a></div></article>`;
   const likeMark = root.querySelector('#articleLikeButton [aria-hidden="true"]');
   likeMark.outerHTML = '<svg class="article-like-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 10v11H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3Zm0 0 4-8c2 0 3 1.5 2.5 3.5L13 10h6a2 2 0 0 1 2 2l-1.5 7a2 2 0 0 1-2 2H7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  setupArticleSharing(item);
   if (/^(https?:\/\/|uploads\/[a-f0-9]{32}\.(jpg|png|webp|gif)$)/i.test(item.coverImage || '')) {
     const hero = root.querySelector('.article-hero');
-    hero.style.backgroundImage = `linear-gradient(0deg,rgba(14,25,29,.2),rgba(14,25,29,.03)),url(${JSON.stringify(item.coverImage)})`;
+    hero.style.backgroundImage = `url(${JSON.stringify(item.coverImage)})`;
     hero.style.backgroundSize = 'cover'; hero.style.backgroundPosition = 'center'; hero.classList.add('has-cover');
   }
   if (!item.sample) setupArticleEngagement(item);
@@ -76,6 +139,7 @@ function getVisitorId() {
 }
 
 async function setupArticleEngagement(item) {
+  // Load the visitor's like state and public comments, then wire like/comment submissions.
   const likeButton = root.querySelector('#articleLikeButton');
   const likeCount = root.querySelector('#articleLikeCount');
   const commentList = root.querySelector('#articleCommentList');

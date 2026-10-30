@@ -1,3 +1,4 @@
+// Category/tag browse page: read the filter from the URL and render matching published items.
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const tagsOf = item => String(item.tags || '').split(',').map(tag => tag.trim()).filter(Boolean);
 const params = new URLSearchParams(location.search);

@@ -1,9 +1,11 @@
+// Detail page for a single book, product, video, or podcast item.
 const root = document.querySelector('#contentItemRoot');
 const slug = new URLSearchParams(location.search).get('slug');
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const tagsOf = item => String(item.tags || '').split(',').map(tag => tag.trim()).filter(Boolean);
 
 function safeUrl(value) {
+  // Reject non-web protocols before a value is used as a link or media source.
   try {
     const url = new URL(value, location.href);
     return ['http:','https:'].includes(url.protocol) ? url.href : '';

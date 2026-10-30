@@ -113,3 +113,4 @@ Promise.all([
   emptyNode.textContent = 'Published content could not be loaded. Please try again in a moment.';
   emptyNode.classList.remove('hidden');
 });
+// Search page: gather public content, score it against the query, and render filtered results.

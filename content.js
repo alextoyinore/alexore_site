@@ -74,3 +74,4 @@ window.ALEXORE_CONTENT = {
     }
   ]
 };
+// Shared content loader used by pages that need public articles and editorial metadata.

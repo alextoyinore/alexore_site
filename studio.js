@@ -1,3 +1,4 @@
+// Private publishing studio: authentication, dashboard data, article editing, media uploads, and admin views.
 const $ = selector => document.querySelector(selector);
 const API = 'api/index.php';
 let articles = [];
@@ -30,6 +31,7 @@ function closeProfileMenu() {
 }
 
 async function api(route, {method = 'GET', data = null, query = {}} = {}) {
+  // Keep all Studio requests on one helper so credentials, JSON, and CSRF protection stay consistent.
   const headers = {'Accept': 'application/json'};
   if (data !== null) headers['Content-Type'] = 'application/json';
   if (method !== 'GET' && csrfToken) headers['X-CSRF-Token'] = csrfToken;
@@ -62,6 +64,7 @@ function toggleStudio(show) {
 }
 
 async function loadData() {
+  // Load the dashboard's independent data sets together to avoid serial request delays.
   const [articleResult, subscriberResult, settingsResult, contentResult] = await Promise.all([
     api('articles', {query:{include:'all'}}), api('subscribers'), api('settings'), api('content', {query:{include:'all'}})
   ]);
@@ -106,6 +109,7 @@ function renderDashboard() {
 }
 
 function openEditor(article = null) {
+  // Reuse the editor form for new articles and existing drafts/published articles.
   editingId = article?.id || null;
   editorReturnView = document.querySelector('.side-link.selected')?.dataset.view || 'overview';
   $('#editorHeading').textContent = article ? 'Edit article' : 'Write a new article';
@@ -178,6 +182,7 @@ function updateWritingStats() {
   $('#wordCountStatus').textContent = `${words} ${words === 1 ? 'word' : 'words'}`;
 }
 function saveLocalDraft() {
+  // Preserve an in-progress draft in this browser between visits or accidental closes.
   const draft = {title:$('#articleTitle').value,category:$('#articleCategory').value,tags:$('#articleTags').value,deck:$('#articleDeck').value,coverImage:$('#articleCover').value,seoDescription:$('#articleSeo').value,body:$('#articleBody').innerHTML};
   try { localStorage.setItem(draftKey(), JSON.stringify(draft)); $('#saveStatus').textContent = 'Saved in this browser'; } catch { $('#saveStatus').textContent = 'Browser storage is full'; }
 }
@@ -273,6 +278,7 @@ function downloadFile(name, data, type) {
 }
 
 async function setView(view) {
+  // Swap the Studio's content panel while preserving the shared sidebar and page shell.
   document.querySelectorAll('.side-link').forEach(button => button.classList.toggle('selected', button.dataset.view === view));
   $('#overviewPanels').classList.toggle('hidden', view !== 'overview');
   $('#bottomPanels').classList.toggle('hidden', view !== 'overview');
