@@ -1,0 +1,382 @@
+<title>Studio — alexore</title>
+    <section id="loginScreen" class="login-screen hidden">
+      <form id="loginForm" class="login-card">
+        <a class="wordmark" href="index.html"><span class="mark">a</span><span>ALEXORE<span class="wordmark-dot">.</span></span></a>
+        <div class="eyebrow">
+          PRIVATE PUBLISHING STUDIO
+        </div>
+        <h1>
+          Welcome back.
+        </h1>
+        <p id="loginMessage">
+          Sign in to manage your writing, products, and audience.
+        </p>
+        <label class="field-label">
+          USERNAME<input id="adminUsername" type="text" autocomplete="username" required>
+        </label>
+        <label class="field-label">
+          ADMIN PASSWORD
+          <div class="password-control">
+            <input id="adminPassword" type="password" autocomplete="current-password" required>
+            <button id="togglePassword" class="password-toggle" type="button" aria-controls="adminPassword" aria-pressed="false">
+              Show
+            </button>
+          </div>
+        </label>
+        <button class="button button-dark" type="submit">
+          Sign in <span>↗</span>
+        </button>
+      </form>
+    </section>
+    <aside class="sidebar">
+      <a class="wordmark" href="index.html"><span class="mark">a</span><span>ALEXORE<span class="wordmark-dot">.</span></span></a>
+      <div class="side-label">
+        WORKSPACE
+      </div>
+      <button class="side-link selected" data-view="overview">
+        <span>◫</span> Overview
+      </button>
+      <button class="side-link" data-view="writing">
+        <span>▤</span> Writing <i id="draftCount">0</i>
+      </button>
+      <button class="side-link" data-view="comments">
+        <span>▱</span> Comments
+      </button>
+      <button class="side-link" data-view="audience">
+        <span>♧</span> Audience
+      </button>
+      <div class="side-label side-label-spaced">
+        PUBLISH
+      </div>
+      <button class="side-link" data-view="shop">
+        <span>◇</span> Books & products
+      </button>
+      <button class="side-link" data-view="library">
+        <span>◉</span> Video & podcasts
+      </button>
+      <div class="side-label side-label-spaced">
+        PAGE CONTENT
+      </div>
+      <button class="side-link" data-view="about">
+        <span>◌</span> About page
+      </button>
+      <button class="side-link" data-view="products">
+        <span>▧</span> Shop page
+      </button>
+      <button class="side-link" data-view="media">
+        <span>▣</span> Media page
+      </button>
+      <button class="side-link" data-view="speaking">
+        <span>✳</span> Speaking page
+      </button>
+      <div class="side-label side-label-spaced">
+        PREFERENCES
+      </div>
+      <button class="side-link" data-view="settings">
+        <span>⚙</span> Site settings
+      </button>
+      <div class="side-bottom">
+        <div class="side-avatar">
+          a
+        </div>
+        <div>
+          <b>alexore</b><small>Personal workspace</small>
+        </div>
+        <span>•••</span>
+      </div>
+    </aside>
+    <main class="studio-main">
+      <header class="studio-top">
+        <a class="back-site" href="index.html">← <span>View your site</span></a>
+        <div class="studio-top-right">
+          <span class="save-indicator"><i></i> <span id="saveStatus">All changes saved</span></span>
+          <div class="profile-menu" id="profileMenu">
+            <button class="profile-trigger" id="profileDot" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="profileDropdown">
+              <span class="profile-avatar" id="profileInitial">A</span><span class="profile-name" id="profileName">Alex Ore</span><span class="profile-caret" aria-hidden="true">⌄</span>
+            </button>
+            <div id="profileDropdown" class="profile-dropdown hidden" role="menu">
+              <div class="profile-dropdown-name">
+                Alex Ore
+              </div>
+              <button id="logoutButton" type="button" role="menuitem">
+                ↪ <span>Log out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+      <div class="studio-content">
+        <div class="studio-heading">
+          <div>
+            <div class="eyebrow">
+              SUNDAY, OCTOBER 25, 2026 <span class="studio-heading-mark">✳</span>
+            </div>
+            <h1 id="viewTitle">
+              Your studio<span>.</span>
+            </h1>
+            <p id="viewSubtitle">
+              A little space to make things that matter.
+            </p>
+          </div>
+          <button class="button button-dark" id="newPost">
+            <span class="plus">＋</span> New article
+          </button>
+        </div>
+        <section class="stat-grid" id="stats">
+          <div class="stat-card">
+            <div class="stat-label">
+              PUBLISHED PIECES <span>↗</span>
+            </div>
+            <div class="stat-value" id="publishedCount">
+              04
+            </div>
+            <div class="stat-foot">
+              Stories, notes & ideas
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              EMAIL COMMUNITY <span>✳</span>
+            </div>
+            <div class="stat-value" id="subscriberCount">
+              128
+            </div>
+            <div class="stat-foot">
+              <span class="stat-positive">↑ 12</span> this month
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">
+              IN THE NOTEBOOK <span>◷</span>
+            </div>
+            <div class="stat-value" id="draftStat">
+              02
+            </div>
+            <div class="stat-foot">
+              Ideas in progress
+            </div>
+          </div>
+          <div class="stat-card stat-accent">
+            <div class="stat-label">
+              NEXT CHAPTER <span>↗</span>
+            </div>
+            <div class="next-chapter">
+              <span>01</span><b>Your book</b><small>A framework taking shape</small>
+            </div>
+            <a href="#products" class="stat-link" data-go="shop">Keep building →</a>
+          </div>
+        </section>
+        <section class="studio-columns" id="overviewPanels">
+          <div class="panel recent-panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">
+                  YOUR IDEAS, OUT IN THE WORLD
+                </div>
+                <h2>
+                  Recent writing
+                </h2>
+              </div>
+              <button class="plain-link" data-go="writing">
+                See all ↗
+              </button>
+            </div>
+            <div id="recentList" class="recent-list">
+            </div>
+            <div class="panel-bottom">
+              <span id="publishedHint">Your public notebook, one piece at a time.</span><a href="writing.html">View public writing ↗</a>
+            </div>
+          </div>
+          <div class="panel quick-panel">
+            <div class="eyebrow">
+              MAKE THE NEXT THING
+            </div>
+            <h2>
+              Where to?
+            </h2>
+            <p>
+              Every good idea starts somewhere. Pick up where you left off, or start fresh.
+            </p>
+            <button class="quick-action" id="quickArticle">
+              <span class="quick-icon">▤</span><span><b>Write an article</b><small>Shape an idea into a story</small></span><span class="quick-arrow">↗</span>
+            </button>
+            <button class="quick-action" data-go="shop">
+              <span class="quick-icon">◇</span><span><b>Build a product</b><small>Book, framework or resource</small></span><span class="quick-arrow">↗</span>
+            </button>
+            <button class="quick-action" data-go="library">
+              <span class="quick-icon">▶</span><span><b>Plan an episode</b><small>Turn your writing into a listen</small></span><span class="quick-arrow">↗</span>
+            </button>
+            <button class="quick-action" data-go="speaking">
+              <span class="quick-icon">✳</span><span><b>Shape a talk</b><small>Put your ideas on stage</small></span><span class="quick-arrow">↗</span>
+            </button>
+          </div>
+        </section>
+        <section class="bottom-panels" id="bottomPanels">
+          <div class="panel audience-panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">
+                  THE PEOPLE READING ALONG
+                </div>
+                <h2>
+                  Your community
+                </h2>
+              </div>
+              <button class="plain-link" data-go="audience">
+                Details ↗
+              </button>
+            </div>
+            <div class="audience-row">
+              <div class="audience-number">
+                <strong id="audienceCount">128</strong><span>subscribers</span>
+              </div>
+              <div class="audience-visual">
+                <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+              </div>
+            </div>
+            <p>
+              Your list grows with every note you send.
+            </p>
+          </div>
+          <div class="panel quote-panel">
+            <span class="quote-symbol">“</span>
+            <p>
+              Write the thing only you can write, from the life only you have lived.
+            </p>
+            <small>A NOTE TO SELF · ALWAYS</small><span class="quote-star">✳</span>
+          </div>
+        </section>
+        <section class="detail-panel panel hidden" id="detailPanel">
+        </section>
+      </div>
+      <footer class="studio-footer">
+        <span>Made with intention. <b>✳</b></span><span>alexore studio · <a href="index.html">Public site ↗</a></span>
+      </footer>
+    </main>
+    <section id="editorPage" class="editor-page hidden">
+      <form id="articleForm">
+        <div class="editor-top">
+          <div>
+            <div class="eyebrow">
+              A NEW PIECE, TAKING SHAPE
+            </div>
+            <h2 id="editorHeading">
+              Write a new article
+            </h2>
+          </div>
+          <button type="button" id="editorClose" class="close-dialog" aria-label="Back to studio">
+            ← Back to studio
+          </button>
+        </div>
+        <label class="field-label">
+          TITLE<input id="articleTitle" required maxlength="240" placeholder="Give this idea a name...">
+        </label>
+        <div class="field-row">
+          <label class="field-label">
+            CATEGORY<select id="articleCategory"><option>Becoming</option><option>Work</option><option>Money</option><option>AI & Tech</option><option>Faith</option><option>Notes</option></select>
+          </label>
+          <label class="field-label">
+            TAGS<input id="articleTags" type="text" maxlength="500" placeholder="e.g. faith, work, becoming"><span class="field-help">Separate tags with commas, up to 12.</span>
+          </label>
+        </div>
+        <label class="field-label">
+          DECK / SHORT DESCRIPTION<textarea id="articleDeck" rows="2" maxlength="500" placeholder="A sentence to invite someone in..."></textarea>
+        </label>
+        <div class="field-row">
+          <div class="cover-field">
+            <label class="field-label">
+              COVER IMAGE URL <input id="articleCover" type="text" placeholder="Paste an image URL or upload">
+            </label>
+            <button class="image-upload-link" id="coverImageUpload" type="button">
+              ↑ Upload image
+            </button>
+          </div>
+          <label class="field-label">
+            SEO DESCRIPTION <input id="articleSeo" maxlength="160" placeholder="A search-friendly summary (max 160 characters)">
+          </label>
+        </div>
+        <div class="writing-label">
+          <label class="field-label">
+            YOUR ARTICLE <span class="field-help">A calm space for a clear thought.</span>
+          </label>
+          <span class="word-counter" id="wordCount">0 words</span>
+        </div>
+        <div class="editor-toolbar" role="toolbar" aria-label="Article formatting">
+          <button type="button" data-command="undo" title="Undo">
+            ↶
+          </button>
+          <button type="button" data-command="redo" title="Redo">
+            ↷
+          </button>
+          <i></i><select id="blockStyle" aria-label="Text style"><option value="P">Paragraph</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option><option value="BLOCKQUOTE">Quote</option></select><i></i>
+          <button type="button" data-command="bold" title="Bold">
+            <b>B</b>
+          </button>
+          <button type="button" data-command="italic" title="Italic">
+            <i>I</i>
+          </button>
+          <button type="button" data-command="underline" title="Underline">
+            <u>U</u>
+          </button>
+          <button type="button" data-command="insertUnorderedList" title="Bulleted list">
+            ☷
+          </button>
+          <button type="button" data-command="insertOrderedList" title="Numbered list">
+            1.
+          </button>
+          <i></i>
+          <button type="button" data-action="link">
+            ↗ Link
+          </button>
+          <button type="button" data-action="image">
+            ▧ Image
+          </button>
+          <button type="button" data-command="insertHorizontalRule" title="Divider">
+            —
+          </button>
+          <span></span>
+          <button type="button" data-action="clear">
+            Clear
+          </button>
+        </div>
+        <div id="articleBody" class="rich-editor" contenteditable="true" role="textbox" aria-label="Article body" aria-multiline="true" data-placeholder="Start with the sentence you can’t stop thinking about...">
+        </div>
+        <div id="slashMenu" class="slash-menu hidden" role="menu">
+          <button type="button" data-block="H2">
+            <b>H₂</b><span><strong>Heading</strong><small>Break your article into sections</small></span>
+          </button>
+          <button type="button" data-block="BLOCKQUOTE">
+            <b>❝</b><span><strong>Quote</strong><small>Set a line apart for emphasis</small></span>
+          </button>
+          <button type="button" data-block="UL">
+            <b>☷</b><span><strong>Bullet list</strong><small>Make a short list of ideas</small></span>
+          </button>
+          <button type="button" data-block="OL">
+            <b>1.</b><span><strong>Numbered list</strong><small>Lay out steps in order</small></span>
+          </button>
+          <button type="button" data-block="HR">
+            <b>—</b><span><strong>Divider</strong><small>Add a little breathing room</small></span>
+          </button>
+        </div>
+        <div class="editor-status">
+          <span id="wordCountStatus">0 words</span><span>Drafts save in this browser as you write</span>
+        </div>
+        <div class="editor-bottom">
+          <button type="button" id="saveDraft" class="button button-outline">
+            Save draft
+          </button>
+          <div>
+            <button type="button" id="previewArticle" class="button button-outline">
+              Preview
+            </button>
+            <button type="button" id="publishArticle" class="button button-dark">
+              Publish article <span>↗</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </section>
+    <input id="articleImageFile" class="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+    <div id="toast" class="toast">
+    </div>
+    

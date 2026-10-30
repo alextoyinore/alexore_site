@@ -2,15 +2,32 @@
 
 A responsive personal publishing site and studio dashboard for alexore.
 
-## Open it
+## Run the app locally
 
-Open `index.html` for the public site or `studio.html` for the dashboard. The PHP API requires PHP and MySQL; use a local PHP server or cPanel to run the complete site.
+Start Apache and MySQL in XAMPP, then from the project folder run:
+
+```powershell
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173/`. Vite serves the React app and proxies `/api` and `/uploads` to `http://localhost/alexore`, so the XAMPP PHP API and database remain available while you test. The dev command does not create a production build.
+
+## Build an approved commit
+
+Only run a production build after the commit is approved:
+
+```powershell
+npm run build:xampp
+```
+
+`npm run build` writes the production site to `dist/`. `npm run build:xampp` also publishes it to `C:\xampp\htdocs\alexore`.
 
 ## Local XAMPP setup
 
 1. Start Apache and MySQL in the XAMPP Control Panel.
 2. In phpMyAdmin, create a database named `alexore_site` and import `api/schema.sql`.
-3. Open `http://localhost/alexore/studio.html`. On loopback requests, the API uses the local `root` MySQL account with a blank password by default, so no private config file is needed for a standard XAMPP install.
+3. After approving and committing the source, run `npm run build:xampp`, then open `http://localhost/alexore/studio.html`. On loopback requests, the API uses the local `root` MySQL account with a blank password by default, so no private config file is needed for a standard XAMPP install.
 
 For an existing local database created before admin display names were added, run api/migrate-admin-name.sql once in phpMyAdmin. The current local admin account is labeled Alex Ore. For the existing article table, also run api/migrate-article-metadata.sql once to add tags and remove the stored reading-time column.
 
@@ -33,10 +50,11 @@ If your XAMPP MySQL root account has a password or a different port, put the set
 The local schema is installed in the `alexore_site` database on port `3306` (MariaDB). For quick local development, the PHP built-in server defaults to the local MariaDB `root` account with a blank password. These defaults only activate when PHP is bound to a loopback address. Start it from PowerShell:
 
 ```powershell
-php -S 127.0.0.1:8000 -t .
+npm run build
+php -S 127.0.0.1:8000 -t dist
 ```
 
-To create the first dashboard account, set `ALEXORE_ADMIN_PASSWORD` in the PowerShell session and run `php api/create-admin.php alexore`. The password is stored as a hash in the `users` table. Open `http://127.0.0.1:8000/` for the public site and `/studio.html` for the dashboard. If your local MariaDB root account has a password, set `ALEXORE_DB_PASSWORD` before starting PHP. You can also override the database user or DSN with `ALEXORE_DB_USER` or `ALEXORE_DSN`. These local defaults are for development only; cPanel uses the private production config described below.
+To create the first dashboard account, set `ALEXORE_ADMIN_PASSWORD` in the PowerShell session and run `php api/create-admin.php alexore` from the source project. The password is stored as a hash in the `users` table. Open `http://127.0.0.1:8000/` for the public site and `/studio.html` for the dashboard. If your local MariaDB root account has a password, set `ALEXORE_DB_PASSWORD` before starting PHP. You can also override the database user or DSN with `ALEXORE_DB_USER` or `ALEXORE_DSN`. These local defaults are for development only; cPanel uses the private production config described below.
 
 ## Included
 

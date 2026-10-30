@@ -1,0 +1,15 @@
+{
+  "name": "alexore-react-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "node scripts/prepare-build.mjs && vite build",
+    "build:xampp": "npm run build && node scripts/deploy-xampp.mjs"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.5"
+  }
+}

@@ -1,0 +1,29 @@
+<title>Search — alexore</title><main class="catalog-page page-width search-page">
+      <div class="catalog-intro">
+        <div class="detail-breadcrumb"><a href="index.html">HOME</a> / SEARCH</div>
+        <div class="eyebrow">THE ALEXORE LIBRARY</div>
+        <h1>Find an idea.</h1>
+        <p>Search writing, books, products, videos, and podcasts across the site.</p>
+        <form class="search-form" id="globalSearchForm" role="search">
+          <label class="catalog-search" for="globalSearchInput">
+            <span>SEARCH EVERYTHING</span>
+            <input id="globalSearchInput" name="q" type="search" placeholder="Try work, AI, money, becoming…" autocomplete="off">
+          </label>
+          <button class="button button-dark search-submit" type="submit">Search <span>↗</span></button>
+        </form>
+        <div class="catalog-filter-row search-filters" role="group" aria-label="Filter search results by type">
+          <button class="search-filter is-active" type="button" data-kind="all" aria-pressed="true">Everything</button>
+          <button class="search-filter" type="button" data-kind="article" aria-pressed="false">Writing</button>
+          <button class="search-filter" type="button" data-kind="book" aria-pressed="false">Books</button>
+          <button class="search-filter" type="button" data-kind="product" aria-pressed="false">Products</button>
+          <button class="search-filter" type="button" data-kind="video" aria-pressed="false">Videos</button>
+          <button class="search-filter" type="button" data-kind="podcast" aria-pressed="false">Podcasts</button>
+        </div>
+      </div>
+      <div class="search-results-heading">
+        <h2 id="searchResultsHeading">Recent work</h2>
+        <span id="searchResultCount" aria-live="polite"></span>
+      </div>
+      <div id="searchResults" class="catalog-grid" aria-live="polite" aria-busy="true"></div>
+      <p id="searchEmpty" class="empty-state hidden"></p>
+    </main>
