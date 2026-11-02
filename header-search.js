@@ -1,6 +1,6 @@
 const headerSearchForms = document.querySelectorAll('.header-search');
 
-headerSearchForms.forEach(form => {
+headerSearchForms.forEach((form) => {
   const toggle = form.querySelector('.header-search-toggle');
   const close = form.querySelector('.header-search-close');
   const input = form.querySelector('input[name="q"]');
@@ -27,7 +27,7 @@ headerSearchForms.forEach(form => {
     toggle.focus();
   });
 
-  form.addEventListener('keydown', event => {
+  form.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && form.classList.contains('is-open')) {
       event.preventDefault();
       setOpen(false);
@@ -35,7 +35,7 @@ headerSearchForms.forEach(form => {
     }
   });
 
-  document.addEventListener('pointerdown', event => {
+  document.addEventListener('pointerdown', (event) => {
     if (form.classList.contains('is-open') && !form.contains(event.target)) {
       setOpen(false);
     }

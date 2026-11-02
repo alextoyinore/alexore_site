@@ -1,5 +1,9 @@
 // Home page behavior: navigation, newsletter signup, latest articles, and public site settings.
-const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const escapeHtml = (value) =>
+  String(value ?? '').replace(
+    /[&<>"']/g,
+    (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]
+  );
 
 const menuButton = document.querySelector('.menu-button');
 menuButton?.addEventListener('click', () => {
@@ -8,17 +12,18 @@ menuButton?.addEventListener('click', () => {
   menuButton.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
 });
 
-document.querySelectorAll('.main-nav a').forEach(link => {
+document.querySelectorAll('.main-nav a').forEach((link) => {
   const url = new URL(link.href, location.href);
-  if (url.pathname === location.pathname && url.hash === location.hash) link.classList.add('active');
+  if (url.pathname === location.pathname && url.hash === location.hash)
+    link.classList.add('active');
   link.addEventListener('click', () => {
     document.querySelector('.main-nav')?.classList.remove('open');
-    menuButton?.setAttribute('aria-expanded','false');
-    menuButton?.setAttribute('aria-label','Open navigation');
+    menuButton?.setAttribute('aria-expanded', 'false');
+    menuButton?.setAttribute('aria-label', 'Open navigation');
   });
 });
 
-document.querySelector('#subscribeForm')?.addEventListener('submit', async event => {
+document.querySelector('#subscribeForm')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   const emailInput = form.querySelector('#email');
@@ -31,8 +36,10 @@ document.querySelector('#subscribeForm')?.addEventListener('submit', async event
   message.textContent = 'Adding you to the list…';
   try {
     const response = await fetch('api/index.php?route=subscribe', {
-      method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
-      body:JSON.stringify({email}), credentials:'same-origin'
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ email }),
+      credentials: 'same-origin',
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Could not join the list.');
@@ -48,12 +55,14 @@ document.querySelector('#subscribeForm')?.addEventListener('submit', async event
 });
 
 // The article API returns newest-first; show one featured story plus six cards (seven total).
-fetch('api/index.php?route=articles', {headers:{'Accept':'application/json'}})
-  .then(response => response.ok ? response.json() : Promise.reject())
-  .then(({articles=[]}) => {
+fetch('api/index.php?route=articles', { headers: { Accept: 'application/json' } })
+  .then((response) => (response.ok ? response.json() : Promise.reject()))
+  .then(({ articles = [] }) => {
     const grid = document.querySelector('.post-grid');
     if (!grid || !articles.length) return;
-    const coverIsUsable = url => /^https?:\/\//i.test(url || '') || /^uploads\/[a-f0-9]{32}\.(jpg|png|webp|gif)$/i.test(url || '');
+    const coverIsUsable = (url) =>
+      /^https?:\/\//i.test(url || '') ||
+      /^uploads\/[a-f0-9]{32}\.(jpg|png|webp|gif)$/i.test(url || '');
     const latestArticles = articles.slice(0, 7);
     const featured = latestArticles[0];
     const featuredPanel = document.querySelector('.featured-post');
@@ -64,11 +73,12 @@ fetch('api/index.php?route=articles', {headers:{'Accept':'application/json'}})
       if (coverIsUsable(featured.coverImage)) {
         art.classList.add('has-cover');
         art.style.backgroundImage = `url(${JSON.stringify(featured.coverImage)})`;
-        art.style.backgroundSize = 'cover'; art.style.backgroundPosition = 'center';
+        art.style.backgroundSize = 'cover';
+        art.style.backgroundPosition = 'center';
       } else art.classList.remove('has-cover');
     }
     grid.replaceChildren();
-    latestArticles.slice(1).forEach(article => {
+    latestArticles.slice(1).forEach((article) => {
       const card = document.createElement('article');
       card.className = 'post-card';
       const target = `article.html?slug=${encodeURIComponent(article.slug)}`;
@@ -76,25 +86,42 @@ fetch('api/index.php?route=articles', {headers:{'Accept':'application/json'}})
       const artwork = card.querySelector('.post-art');
       if (coverIsUsable(article.coverImage)) {
         artwork.style.backgroundImage = `url(${JSON.stringify(article.coverImage)})`;
-        artwork.style.backgroundSize = 'cover'; artwork.style.backgroundPosition = 'center';
+        artwork.style.backgroundSize = 'cover';
+        artwork.style.backgroundPosition = 'center';
       }
       grid.append(card);
     });
-  }).catch(() => {});
+  })
+  .catch(() => {});
 
 // Public settings supply editable page copy and the social profile destinations.
-fetch('api/index.php?route=settings', {headers:{'Accept':'application/json'}})
-  .then(response => response.ok ? response.json() : Promise.reject())
-  .then(({settings={}}) => {
-    document.querySelectorAll('[data-setting]').forEach(node => {
+fetch('api/index.php?route=settings', { headers: { Accept: 'application/json' } })
+  .then((response) => (response.ok ? response.json() : Promise.reject()))
+  .then(({ settings = {} }) => {
+    document.querySelectorAll('[data-setting]').forEach((node) => {
       const value = settings[node.dataset.setting];
       if (typeof value !== 'string' || !value.trim()) return;
-      if (node.hasAttribute('data-setting-lines')) node.innerHTML = value.trim().split(/\r?\n/).map(line => line.replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))).join('<br>');
+      if (node.hasAttribute('data-setting-lines'))
+        node.innerHTML = value
+          .trim()
+          .split(/\r?\n/)
+          .map((line) =>
+            line.replace(
+              /[&<>"']/g,
+              (char) =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]
+            )
+          )
+          .join('<br>');
       else node.textContent = value.trim();
     });
-    document.querySelectorAll('[data-social]').forEach(link => {
+    document.querySelectorAll('[data-social]').forEach((link) => {
       const url = settings[link.dataset.social];
-      if (url && /^https?:\/\//i.test(url)) { link.href=url; link.target='_blank'; link.rel='noopener noreferrer'; }
-      else link.hidden=true;
+      if (url && /^https?:\/\//i.test(url)) {
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+      } else link.hidden = true;
     });
-  }).catch(() => document.querySelectorAll('[data-social]').forEach(link => link.hidden=true));
+  })
+  .catch(() => document.querySelectorAll('[data-social]').forEach((link) => (link.hidden = true)));

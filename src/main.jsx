@@ -19,17 +19,53 @@ import speaking from './pages/speaking.html?raw';
 import studio from './pages/studio.html?raw';
 import teaching from './pages/teaching.html?raw';
 
-const pages = { 'index.html': home, 'writing.html': writing, 'about.html': about,
-  'article.html': article, 'book.html': book, 'browse.html': browse,
-  'content-item.html': contentItem, 'contact.html': contact, 'framework.html': framework, 'media.html': media,
-  'products.html': products, 'search.html': search, 'speaking.html': speaking,
-  'studio.html': studio, 'teaching.html': teaching };
+const pages = {
+  'index.html': home,
+  'writing.html': writing,
+  'about.html': about,
+  'article.html': article,
+  'book.html': book,
+  'browse.html': browse,
+  'content-item.html': contentItem,
+  'contact.html': contact,
+  'framework.html': framework,
+  'media.html': media,
+  'products.html': products,
+  'search.html': search,
+  'speaking.html': speaking,
+  'studio.html': studio,
+  'teaching.html': teaching,
+};
 const legacyModules = import.meta.glob([
-  '../app.js', '../article.js', '../browse.js', '../catalog.js', '../contact.js', '../content-item.js',
-  '../content.js', '../detail.js', '../header-search.js', '../search.js',
-  '../studio.js', '../writing-list.js',
+  '../app.js',
+  '../article.js',
+  '../browse.js',
+  '../catalog.js',
+  '../contact.js',
+  '../content-item.js',
+  '../content.js',
+  '../detail.js',
+  '../header-search.js',
+  '../search.js',
+  '../studio.js',
+  '../writing-list.js',
 ]);
-const voidElements = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+const voidElements = new Set([
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
+]);
 const pageScripts = {
   'index.html': ['app.js', 'header-search.js'],
   'writing.html': ['content.js', 'writing-list.js', 'detail.js', 'header-search.js'],
@@ -51,7 +87,12 @@ const pageScripts = {
 function nodeProps(element) {
   const props = {};
   for (const attribute of element.attributes) {
-    const name = attribute.name === 'class' ? 'className' : attribute.name === 'for' ? 'htmlFor' : attribute.name;
+    const name =
+      attribute.name === 'class'
+        ? 'className'
+        : attribute.name === 'for'
+          ? 'htmlFor'
+          : attribute.name;
     props[name] = attribute.value;
   }
   if (!voidElements.has(element.tagName.toLowerCase())) {
@@ -81,12 +122,14 @@ function StudioOverlays({ elements }) {
 }
 
 function StudioPage({ parts }) {
-  return <>
-    <StudioLogin element={parts.login} />
-    <StudioSidebar element={parts.sidebar} />
-    <StudioWorkspace element={parts.main} />
-    <StudioOverlays elements={parts.extras} />
-  </>;
+  return (
+    <>
+      <StudioLogin element={parts.login} />
+      <StudioSidebar element={parts.sidebar} />
+      <StudioWorkspace element={parts.main} />
+      <StudioOverlays elements={parts.extras} />
+    </>
+  );
 }
 
 function ReactSite() {
@@ -95,9 +138,13 @@ function ReactSite() {
   const chromeDoc = useMemo(() => new DOMParser().parseFromString(chrome, 'text/html'), []);
   const [parts] = useState(() => {
     const doc = new DOMParser().parseFromString(source, 'text/html');
-    return { main: doc.querySelector('main'), login: doc.querySelector('#loginScreen'), sidebar: doc.querySelector('.sidebar'),
+    return {
+      main: doc.querySelector('main'),
+      login: doc.querySelector('#loginScreen'),
+      sidebar: doc.querySelector('.sidebar'),
       extras: [...doc.querySelectorAll('#editorPage, #articleImageFile, #toast')],
-      title: doc.title };
+      title: doc.title,
+    };
   });
   const scriptNames = pageScripts[filename] || pageScripts['index.html'];
 
@@ -111,14 +158,18 @@ function ReactSite() {
         if (!loadModule) throw new Error(`Missing page behavior module: ${path}`);
         await loadModule();
       }
-    })().catch(error => console.error('Could not initialize this page:', error));
+    })().catch((error) => console.error('Could not initialize this page:', error));
   }, [filename, parts, scriptNames]);
 
   if (filename === 'studio.html') return <StudioPage parts={parts} />;
 
-  return <><RawElement element={chromeDoc.querySelector('header')} />
-    {parts.main && <RawElement element={parts.main} />}
-    <RawElement element={chromeDoc.querySelector('footer')} /></>;
+  return (
+    <>
+      <RawElement element={chromeDoc.querySelector('header')} />
+      {parts.main && <RawElement element={parts.main} />}
+      <RawElement element={chromeDoc.querySelector('footer')} />
+    </>
+  );
 }
 
 createRoot(document.getElementById('root')).render(<ReactSite />);
