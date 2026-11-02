@@ -1770,7 +1770,7 @@ body {
   border:1px solid var(--line);
   background:#fff;
   font:14px var(--sans);
-  outline: none;
+  outline-color:#96d4e1;
 }
 .search-form {
   display:flex;
