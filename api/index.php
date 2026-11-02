@@ -152,6 +152,19 @@ try {
     error_log('alexore engagement tables setup failed: ' . $error->getMessage());
 }
 
+$contactSchemaReady = true;
+try { $pdo->exec("CREATE TABLE IF NOT EXISTS contact_messages (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    email VARCHAR(254) NOT NULL,
+    subject VARCHAR(180) NOT NULL,
+    message TEXT NOT NULL,
+    status ENUM('new','read') NOT NULL DEFAULT 'new',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_contact_messages_status (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"); }
+catch (Throwable $error) { $contactSchemaReady = false; error_log('alexore contact table setup failed: ' . $error->getMessage()); }
+
 $route = $_GET['route'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -248,6 +261,40 @@ if ($route === 'subscribe' && $method === 'POST') {
         ? 'You’re on the list. Keep becoming.'
         : 'You’re already on the list. Keep becoming.';
     respond(200, ['ok' => true, 'message' => $message]);
+}
+
+if ($route === 'contact' && $method === 'POST') {
+    if (!$contactSchemaReady) respond(503, ['error' => 'The contact form is temporarily unavailable. Please try again later.']);
+    $input = body_json();
+    if (trim((string) ($input['website'] ?? '')) !== '') respond(200, ['ok' => true, 'message' => 'Thanks for reaching out. Your message has been sent.']);
+    $name = trim((string) ($input['name'] ?? ''));
+    $email = filter_var(trim((string) ($input['email'] ?? '')), FILTER_VALIDATE_EMAIL);
+    $subject = trim((string) ($input['subject'] ?? ''));
+    $message = trim((string) ($input['message'] ?? ''));
+    if ($name === '' || mb_strlen($name) > 120) respond(422, ['error' => 'Enter your name (up to 120 characters).']);
+    if (!$email || strlen($email) > 254) respond(422, ['error' => 'Enter a valid email address.']);
+    if ($subject === '' || mb_strlen($subject) > 180) respond(422, ['error' => 'Add a subject up to 180 characters.']);
+    if ($message === '' || mb_strlen($message) > 5000) respond(422, ['error' => 'Write a message up to 5,000 characters.']);
+    if ((int) ($_SESSION['last_contact_at'] ?? 0) > time() - 30) respond(429, ['error' => 'Please wait a moment before sending another message.']);
+    $pdo->prepare('INSERT INTO contact_messages (name,email,subject,message) VALUES (?,?,?,?)')->execute([$name, $email, $subject, $message]);
+    $_SESSION['last_contact_at'] = time();
+    respond(201, ['ok' => true, 'message' => 'Thanks for reaching out. Your message has been sent.']);
+}
+
+if ($route === 'messages' && $method === 'GET') {
+    require_admin();
+    if (!$contactSchemaReady) respond(503, ['error' => 'The contact message inbox is unavailable. Check database permissions.']);
+    $rows = $pdo->query("SELECT id,name,email,subject,message,status,DATE_FORMAT(created_at, '%b %e, %Y · %l:%i %p') AS date FROM contact_messages ORDER BY FIELD(status,'new','read'), created_at DESC")->fetchAll();
+    respond(200, ['messages' => $rows]);
+}
+if ($route === 'messages' && $method === 'POST') {
+    require_admin(); require_csrf();
+    if (!$contactSchemaReady) respond(503, ['error' => 'The contact message inbox is unavailable. Check database permissions.']);
+    $input = body_json();
+    $id = filter_var($input['id'] ?? null, FILTER_VALIDATE_INT);
+    if (!$id || ($input['status'] ?? '') !== 'read') respond(422, ['error' => 'Choose a valid message action.']);
+    $pdo->prepare("UPDATE contact_messages SET status='read' WHERE id=?")->execute([$id]);
+    respond(200, ['ok' => true]);
 }
 
 if ($route === 'comments' && $method === 'GET') {
@@ -461,8 +508,8 @@ if ($route === 'articles' && $method === 'POST') {
     $body = (string) ($input['body'] ?? '');
     $values = [$slug, $title, trim((string) ($input['category'] ?? 'Notes')), $tagsValue, trim((string) ($input['deck'] ?? '')), trim((string) ($input['coverImage'] ?? '')), substr(trim((string) ($input['seoDescription'] ?? '')), 0, 160), $body, $status, $publishedAt];
     if ($id) {
-        $sql = 'UPDATE articles SET slug=?, title=?, category=?, tags=?, deck=?, cover_image=?, seo_description=?, body=?, status=?, published_at=COALESCE(?, published_at) WHERE id=?';
-        $pdo->prepare($sql)->execute([...$values, $id]);
+        $sql = 'UPDATE articles SET slug=?, title=?, category=?, tags=?, deck=?, cover_image=?, seo_description=?, body=?, status=?, published_at=CASE WHEN ? IS NULL THEN published_at ELSE COALESCE(published_at, ?) END WHERE id=?';
+        $pdo->prepare($sql)->execute([...array_slice($values, 0, 9), $publishedAt, $publishedAt, $id]);
     } else {
         $sql = 'INSERT INTO articles (slug,title,category,tags,deck,cover_image,seo_description,body,status,published_at) VALUES (?,?,?,?,?,?,?,?,?,?)';
         $pdo->prepare($sql)->execute($values); $id = (int) $pdo->lastInsertId();
@@ -475,14 +522,20 @@ if ($route === 'subscribers' && $method === 'GET') {
     respond(200, ['subscribers' => $pdo->query("SELECT email, DATE_FORMAT(created_at, '%b %e, %Y') AS date FROM subscribers ORDER BY created_at DESC")->fetchAll()]);
 }
 if ($route === 'settings' && $method === 'GET') {
-    $rows = $pdo->query("SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('intro','home_intro','about_intro','about_detail','about_hero_title','about_hero_emphasis','about_section_title','about_story_continued','about_point1_title','about_point1_body','about_point2_title','about_point2_body','about_point3_title','about_point3_body','about_point4_title','about_point4_body','about_bottom_title','about_bottom_body','offers_intro','x','medium','substack','linkedin','youtube','products_heading','products_intro','products_section_heading','products_section_body','book_status','book_card_title','book_card_description','book_hero_title','book_lead','book_section_title','book_section_body','framework_status','framework_card_title','framework_card_description','framework_hero_title','framework_lead','framework_section_title','framework_section_body','media_hero_title','media_lead','media_section_title','media_section_body','media_bottom_title','media_bottom_body','speaking_hero_title','speaking_lead','speaking_section_title','speaking_section_body','speaking_bottom_title','speaking_bottom_body')")->fetchAll();
+    $rows = $pdo->query("SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('intro','home_intro','about_intro','about_detail','about_hero_title','about_hero_emphasis','about_section_title','about_story_continued','about_point1_title','about_point1_body','about_point2_title','about_point2_body','about_point3_title','about_point3_body','about_point4_title','about_point4_body','about_bottom_title','about_bottom_body','offers_intro','x','medium','substack','linkedin','youtube','products_heading','products_intro','products_section_heading','products_section_body','book_status','book_card_title','book_card_description','book_hero_title','book_lead','book_section_title','book_section_body','framework_status','framework_card_title','framework_card_description','framework_hero_title','framework_lead','framework_section_title','framework_section_body','media_hero_title','media_lead','media_section_title','media_section_body','media_bottom_title','media_bottom_body','speaking_hero_title','speaking_lead','speaking_section_title','speaking_section_body','speaking_bottom_title','speaking_bottom_body','editor_autosave_minutes','contact_delivery_email')")->fetchAll();
     $settings = []; foreach ($rows as $row) $settings[$row['setting_key']] = $row['setting_value'];
     respond(200, ['settings' => $settings]);
 }
 if ($route === 'settings' && $method === 'POST') {
     require_admin(); require_csrf();
+    $input = body_json();
+    if (array_key_exists('contact_delivery_email', $input)) {
+        $deliveryEmail = trim((string) $input['contact_delivery_email']);
+        if ($deliveryEmail !== '' && (!filter_var($deliveryEmail, FILTER_VALIDATE_EMAIL) || strlen($deliveryEmail) > 254)) respond(422, ['error' => 'Enter a valid contact delivery email address.']);
+        $input['contact_delivery_email'] = $deliveryEmail;
+    }
     $statement = $pdo->prepare('INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)');
-    foreach (body_json() as $key => $value) {
+    foreach ($input as $key => $value) {
         if (preg_match('/^[a-z_]{1,80}$/', (string) $key)) $statement->execute([$key, is_scalar($value) ? (string) $value : '']);
     }
     respond(200, ['ok' => true]);

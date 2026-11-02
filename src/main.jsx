@@ -10,6 +10,7 @@ import article from './pages/article.html?raw';
 import book from './pages/book.html?raw';
 import browse from './pages/browse.html?raw';
 import contentItem from './pages/content-item.html?raw';
+import contact from './pages/contact.html?raw';
 import framework from './pages/framework.html?raw';
 import media from './pages/media.html?raw';
 import products from './pages/products.html?raw';
@@ -20,11 +21,11 @@ import teaching from './pages/teaching.html?raw';
 
 const pages = { 'index.html': home, 'writing.html': writing, 'about.html': about,
   'article.html': article, 'book.html': book, 'browse.html': browse,
-  'content-item.html': contentItem, 'framework.html': framework, 'media.html': media,
+  'content-item.html': contentItem, 'contact.html': contact, 'framework.html': framework, 'media.html': media,
   'products.html': products, 'search.html': search, 'speaking.html': speaking,
   'studio.html': studio, 'teaching.html': teaching };
 const legacyModules = import.meta.glob([
-  '../app.js', '../article.js', '../browse.js', '../catalog.js', '../content-item.js',
+  '../app.js', '../article.js', '../browse.js', '../catalog.js', '../contact.js', '../content-item.js',
   '../content.js', '../detail.js', '../header-search.js', '../search.js',
   '../studio.js', '../writing-list.js',
 ]);
@@ -37,6 +38,7 @@ const pageScripts = {
   'book.html': ['detail.js', 'header-search.js'],
   'browse.html': ['browse.js', 'detail.js', 'header-search.js'],
   'content-item.html': ['content-item.js', 'detail.js', 'header-search.js'],
+  'contact.html': ['contact.js', 'detail.js', 'header-search.js'],
   'framework.html': ['detail.js', 'header-search.js'],
   'media.html': ['detail.js', 'catalog.js', 'header-search.js'],
   'products.html': ['detail.js', 'catalog.js', 'header-search.js'],

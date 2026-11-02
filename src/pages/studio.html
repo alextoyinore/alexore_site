@@ -42,6 +42,9 @@
       <button class="side-link" data-view="comments">
         <span>▱</span> Comments
       </button>
+      <button class="side-link" data-view="messages">
+        <span>✉</span> Messages <i id="contactMessageCount">0</i>
+      </button>
       <button class="side-link" data-view="audience">
         <span>♧</span> Audience
       </button>
@@ -359,7 +362,7 @@
           </button>
         </div>
         <div class="editor-status">
-          <span id="wordCountStatus">0 words</span><span>Drafts save in this browser as you write</span>
+          <span id="wordCountStatus">0 words</span><span id="saveStatus">Changes save in this browser as you write</span>
         </div>
         <div class="editor-bottom">
           <button type="button" id="saveDraft" class="button button-outline">

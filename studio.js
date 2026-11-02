@@ -4,6 +4,8 @@ const API = 'api/index.php';
 let articles = [];
 let contentItems = [];
 let subscribers = [];
+let contactMessages = [];
+let contactMessagesLoadError = false;
 let settings = {};
 let csrfToken = '';
 let editingId = null;
@@ -11,6 +13,8 @@ let editorReturnView = 'overview';
 
 $('.studio-content').append($('#editorPage'));
 let autosaveTimer = null;
+let serverAutosaveTimer = null;
+let articleSaveInProgress = false;
 let articlePreviewOpen = false;
 let displayName = 'Alex Ore';
 let savedEditorRange = null;
@@ -65,13 +69,15 @@ function toggleStudio(show) {
 
 async function loadData() {
   // Load the dashboard's independent data sets together to avoid serial request delays.
-  const [articleResult, subscriberResult, settingsResult, contentResult] = await Promise.all([
-    api('articles', {query:{include:'all'}}), api('subscribers'), api('settings'), api('content', {query:{include:'all'}})
+  const [articleResult, subscriberResult, settingsResult, contentResult, messagesResult] = await Promise.all([
+    api('articles', {query:{include:'all'}}), api('subscribers'), api('settings'), api('content', {query:{include:'all'}}), api('messages').catch(() => ({messages:[], unavailable:true}))
   ]);
   articles = articleResult.articles || [];
   subscribers = subscriberResult.subscribers || [];
   settings = settingsResult.settings || {};
   contentItems = contentResult.items || [];
+  contactMessages = messagesResult.messages || [];
+  contactMessagesLoadError = Boolean(messagesResult.unavailable);
   renderDashboard();
 }
 
@@ -98,7 +104,8 @@ function renderDashboard() {
   const drafts = articles.filter(article => article.status === 'Draft');
   $('#publishedCount').textContent = String(published.length).padStart(2, '0');
   $('#draftStat').textContent = String(drafts.length).padStart(2, '0');
-  $('#draftCount').textContent = drafts.length;
+  $('#draftCount').textContent = articles.length;
+  $('#contactMessageCount').textContent = contactMessages.filter(message => message.status === 'new').length;
   $('#subscriberCount').textContent = subscribers.length;
   $('#audienceCount').textContent = subscribers.length;
   $('#recentList').innerHTML = articles.slice(0, 3).map((article, index) => `
@@ -113,6 +120,7 @@ function openEditor(article = null) {
   editingId = article?.id || null;
   editorReturnView = document.querySelector('.side-link.selected')?.dataset.view || 'overview';
   $('#editorHeading').textContent = article ? 'Edit article' : 'Write a new article';
+  $('#publishArticle').innerHTML = article?.status === 'Published' ? 'Update article <span>↗</span>' : 'Publish article <span>↗</span>';
   $('#articleTitle').value = article?.title || '';
   $('#articleCategory').value = article?.category || 'Becoming';
   $('#articleTags').value = article?.tags || '';
@@ -138,6 +146,7 @@ function openEditor(article = null) {
     } catch { localStorage.removeItem(draftKey()); }
   }
   updateWritingStats();
+  startServerAutosave();
   ['.studio-heading','#stats','#overviewPanels','#bottomPanels','#detailPanel'].forEach(selector => $(selector)?.classList.add('hidden'));
   $('#editorPage').classList.remove('hidden');
   window.scrollTo({top: 0, behavior: 'smooth'});
@@ -145,6 +154,8 @@ function openEditor(article = null) {
 }
 
 async function closeEditor() {
+  clearInterval(serverAutosaveTimer);
+  serverAutosaveTimer = null;
   $('#editorPage').classList.add('hidden');
   await setView(editorReturnView);
 }
@@ -156,6 +167,8 @@ async function collect(status) {
   if (coverImage && !(/^https?:\/\//i.test(coverImage) || /^uploads\/[a-f0-9]{32}\.(jpg|png|webp|gif)$/i.test(coverImage))) {
     toast('Use an http(s) image URL or upload an image here.'); $('#articleCover').focus(); return;
   }
+  if (articleSaveInProgress) return;
+  articleSaveInProgress = true;
   try {
     await api('articles', {method: 'POST', data: {
       id: editingId, title, category: $('#articleCategory').value, tags: $('#articleTags').value,
@@ -164,9 +177,10 @@ async function collect(status) {
     }});
     localStorage.removeItem(draftKey());
     await loadData();
+    articleSaveInProgress = false;
     await closeEditor();
     toast(status === 'Published' ? 'Your article is published.' : 'Draft saved to your studio.');
-  } catch (error) { toast(error.message); }
+  } catch (error) { articleSaveInProgress = false; toast(error.message); }
 }
 
 $('#editorClose').addEventListener('click', closeEditor);
@@ -187,6 +201,23 @@ function saveLocalDraft() {
   try { localStorage.setItem(draftKey(), JSON.stringify(draft)); $('#saveStatus').textContent = 'Saved in this browser'; } catch { $('#saveStatus').textContent = 'Browser storage is full'; }
 }
 function scheduleLocalDraft() { $('#saveStatus').textContent = 'Saving…'; clearTimeout(autosaveTimer); autosaveTimer = setTimeout(saveLocalDraft, 500); updateWritingStats(); }
+function startServerAutosave() {
+  clearInterval(serverAutosaveTimer);
+  const minutes = Number(settings.editor_autosave_minutes ?? 5);
+  if (!Number.isFinite(minutes) || minutes <= 0) return;
+  serverAutosaveTimer = setInterval(async () => {
+    if (!$('#editorPage') || $('#editorPage').classList.contains('hidden') || articleSaveInProgress || !$('#articleTitle').value.trim()) return;
+    const status = articles.find(article => String(article.id) === String(editingId))?.status === 'Published' ? 'Published' : 'Draft';
+    articleSaveInProgress = true;
+    try {
+      const result = await api('articles', {method:'POST', data:{id:editingId,title:$('#articleTitle').value.trim(),category:$('#articleCategory').value,tags:$('#articleTags').value,deck:$('#articleDeck').value.trim(),coverImage:$('#articleCover').value.trim(),seoDescription:$('#articleSeo').value.trim(),body:$('#articleBody').innerHTML,status}});
+      editingId = result.id;
+      $('#saveStatus').textContent = 'Auto-saved';
+      await loadData();
+    } catch (error) { $('#saveStatus').textContent = 'Auto-save failed'; }
+    finally { articleSaveInProgress = false; }
+  }, minutes * 60 * 1000);
+}
 function rememberEditorRange() {
   const selection = window.getSelection();
   if (selection?.rangeCount && $('#articleBody').contains(selection.anchorNode)) savedEditorRange = selection.getRangeAt(0).cloneRange();
@@ -289,6 +320,7 @@ async function setView(view) {
     overview:['Your studio.','A little space to make things that matter.'], writing:['Your writing.','Every idea, from first draft to published piece.'],
     audience:['Your community.','A growing circle of curious, thoughtful people.'],
     comments:['Reader comments.','Review comments before they appear beneath your writing.'],
+    messages:['Contact messages.','Read and reply to messages sent through your contact form.'],
     about:['About page.','Manage the story, themes, and closing call to action on your About page.'],
     shop:['Books & products.','Upload and publish books and digital products.'], library:['Video & podcasts.','Publish episodes and videos for people to watch and listen to.'],
     products:['Shop page content.','Edit the introduction to your books and products storefront.'],
@@ -313,6 +345,13 @@ async function setView(view) {
     panel.querySelectorAll('.moderate-comment').forEach(button => button.onclick = async () => {
       button.disabled = true;
       try { await api('comments', {method:'POST', data:{moderate:true, id:button.dataset.id, status:button.dataset.status}}); await setView('comments'); toast(button.dataset.status === 'approved' ? 'Comment approved.' : 'Comment hidden.'); }
+      catch (error) { button.disabled = false; toast(error.message); }
+    });
+  } else if (view === 'messages') {
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">CONTACT INBOX</div><h2>${contactMessages.filter(message => message.status === 'new').length} unread · ${contactMessages.length} total</h2></div></div><p>Messages sent through your public contact form appear here. Reply directly from your email app.</p>${contactMessagesLoadError ? '<div class="empty-state">The inbox is unavailable. Check that the database account can create tables, then refresh Studio.</div>' : contactMessages.length ? `<div class="detail-list">${contactMessages.map(message => `<article class="moderation-comment"><div class="moderation-comment-head"><span><b>${escapeHtml(message.name)}</b> · <a href="mailto:${encodeURIComponent(message.email)}">${escapeHtml(message.email)}</a></span><small>${escapeHtml(message.status.toUpperCase())} · ${escapeHtml(message.date)}</small></div><h3>${escapeHtml(message.subject)}</h3><p class="contact-inbox-message">${escapeHtml(message.message).replace(/\r?\n/g,'<br>')}</p><div class="moderation-comment-actions"><a class="plain-link" href="mailto:${encodeURIComponent(message.email)}?subject=${encodeURIComponent(`Re: ${message.subject}`)}">Reply by email ↗</a>${message.status === 'new' ? `<button class="plain-link mark-message-read" data-id="${message.id}">Mark as read</button>` : ''}</div></article>`).join('')}</div>` : '<div class="empty-state">No messages yet. New contact form messages will appear here.</div>'}`;
+    panel.querySelectorAll('.mark-message-read').forEach(button => button.onclick = async () => {
+      button.disabled = true;
+      try { await api('messages', {method:'POST', data:{id:button.dataset.id, status:'read'}}); await loadData(); await setView('messages'); }
       catch (error) { button.disabled = false; toast(error.message); }
     });
   } else if (view === 'shop' || view === 'library') {
@@ -429,8 +468,8 @@ async function setView(view) {
       catch (error) { toast(error.message); }
     };
   } else if (view === 'settings') {
-    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">MAKE IT YOURS</div><h2>Public profile & links</h2></div></div><p>Update your homepage introduction, ways to connect, and social links. Edit the full About page from the Page Content section.</p><form id="settingsForm" class="settings-form"><label class="field-label">HOMEPAGE INTRODUCTION<textarea name="home_intro" rows="2" placeholder="Notes on work, money, becoming, and conversations that matter.">${escapeHtml(settings.home_intro || '')}</textarea></label><label class="field-label">WAYS TO CONNECT INTRODUCTION<textarea name="offers_intro" rows="2">${escapeHtml(settings.offers_intro || 'From the page to the stage to the classroom — here are a few ways we can connect.')}</textarea></label><div class="settings-grid">${[['x','X'],['medium','Medium'],['substack','Substack'],['linkedin','LinkedIn'],['youtube','YouTube']].map(([key,label]) => `<label class="field-label">${label.toUpperCase()} PROFILE URL<input name="${key}" type="url" placeholder="https://" value="${escapeHtml(settings[key] || '')}"></label>`).join('')}</div><div class="settings-actions"><button class="button button-dark" type="submit">Save site settings <span>↗</span></button><button class="button button-outline" type="button" id="exportAll">Download all data ↓</button></div></form>`;
-    $('#settingsForm').onsubmit = async event => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget)); try { await api('settings', {method:'POST', data:values}); settings = {...settings, ...values}; toast('Site settings saved.'); } catch (error) { toast(error.message); } };
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">MAKE IT YOURS</div><h2>Public profile & links</h2></div></div><p>Update your homepage introduction, ways to connect, and social links. Edit the full About page from the Page Content section.</p><form id="settingsForm" class="settings-form"><label class="field-label">HOMEPAGE INTRODUCTION<textarea name="home_intro" rows="2" placeholder="Notes on work, money, becoming, and conversations that matter.">${escapeHtml(settings.home_intro || '')}</textarea></label><label class="field-label">WAYS TO CONNECT INTRODUCTION<textarea name="offers_intro" rows="2">${escapeHtml(settings.offers_intro || 'From the page to the stage to the classroom — here are a few ways we can connect.')}</textarea></label><label class="field-label">CONTACT FORM EMAIL DESTINATION<input name="contact_delivery_email" type="email" value="${escapeHtml(settings.contact_delivery_email || '')}" placeholder="you@example.com"><small class="field-help">Prepared for email delivery. Messages currently appear in Studio; email forwarding needs a mail service connection.</small></label><label class="field-label">ARTICLE AUTO-SAVE<select name="editor_autosave_minutes"><option value="0" ${Number(settings.editor_autosave_minutes) === 0 ? 'selected' : ''}>Off</option><option value="5" ${Number(settings.editor_autosave_minutes ?? 5) === 5 ? 'selected' : ''}>Every 5 minutes</option><option value="10" ${Number(settings.editor_autosave_minutes) === 10 ? 'selected' : ''}>Every 10 minutes</option><option value="15" ${Number(settings.editor_autosave_minutes) === 15 ? 'selected' : ''}>Every 15 minutes</option></select></label><div class="settings-grid">${[['x','X'],['medium','Medium'],['substack','Substack'],['linkedin','LinkedIn'],['youtube','YouTube']].map(([key,label]) => `<label class="field-label">${label.toUpperCase()} PROFILE URL<input name="${key}" type="url" placeholder="https://" value="${escapeHtml(settings[key] || '')}"></label>`).join('')}</div><div class="settings-actions"><button class="button button-dark" type="submit">Save site settings <span>↗</span></button><button class="button button-outline" type="button" id="exportAll">Download all data ↓</button></div></form>`;
+    $('#settingsForm').onsubmit = async event => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget)); try { await api('settings', {method:'POST', data:values}); settings = {...settings, ...values}; startServerAutosave(); toast('Site settings saved.'); } catch (error) { toast(error.message); } };
     $('#exportAll').onclick = () => { downloadFile('alexore-site-backup.json', JSON.stringify({articles,subscribers,settings}, null, 2), 'application/json'); toast('Full site backup downloaded.'); };
   } else {
     const content = {media:['VIDEO LESSONS','Plan practical AI and technology tutorials for your YouTube channel.','ARTICLE TO AUDIO','Adapt essays into thoughtful, listenable podcast episodes, planned for 2027.'],speaking:['TALK IDEAS','Collect talk titles, outlines, and the stories you want to bring to a room.','BOOKING INFORMATION','Add your topics, event details, and contact path when you are ready to book.']}[view];
