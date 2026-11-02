@@ -2567,14 +2567,17 @@ body {
   min-width: 2px;
   border-radius: 2px 2px 0 0;
   background: #c9e9f1;
-  transition: height 180ms ease, background-color 180ms ease;
+  transition:
+    height 180ms ease,
+    background-color 180ms ease;
 }
 .audience-visual span:last-child {
   background: #74b8c8;
 }
 .audience-visual span:hover {
   background: #74b8c8;
-}.audience-panel > p {
+}
+.audience-panel > p {
   font-size: 8px;
   color: #899699;
   margin: 13px 0 0;

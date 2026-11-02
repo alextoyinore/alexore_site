@@ -212,7 +212,8 @@ function renderSubscriberGrowth() {
   if (!graph) return;
   const today = new Date();
   const firstMonth = new Date(today.getFullYear(), today.getMonth() - 11, 1);
-  const monthKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  const monthKey = (date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   const monthCounts = new Map();
   let existingSubscribers = 0;
   let newSubscribers = 0;
@@ -257,7 +258,8 @@ function renderSubscriberGrowth() {
     'aria-label',
     `Subscriber growth over the last 12 months. ${newSubscribers} new subscribers; ${subscribers.length} total.`
   );
-  $('#subscriberGrowthSummary').textContent = `${newSubscribers} new in 12 months · subscriber totals by month`;
+  $('#subscriberGrowthSummary').textContent =
+    `${newSubscribers} new in 12 months · subscriber totals by month`;
 }
 
 function openEditor(article = null) {
