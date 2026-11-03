@@ -15,6 +15,22 @@ CREATE TABLE IF NOT EXISTS articles (
   INDEX idx_articles_public (status, published_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Add article metadata to databases created with an older schema. This only
+-- adds a column when missing and never drops or rewrites existing fields.
+SET @alexore_schema_has_tags = (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'articles' AND COLUMN_NAME = 'tags'
+);
+SET @alexore_schema_sql = IF(
+  @alexore_schema_has_tags = 0,
+  'ALTER TABLE articles ADD COLUMN tags TEXT NULL AFTER category',
+  'SELECT 1'
+);
+PREPARE alexore_schema_statement FROM @alexore_schema_sql;
+EXECUTE alexore_schema_statement;
+DEALLOCATE PREPARE alexore_schema_statement;
+UPDATE articles SET tags = '' WHERE tags IS NULL;
+
 CREATE TABLE IF NOT EXISTS content_items (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   kind ENUM('book','product','video','podcast') NOT NULL,
@@ -92,3 +108,19 @@ CREATE TABLE IF NOT EXISTS users (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_login_at DATETIME NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Add the admin display name on older databases without replacing usernames
+-- or password hashes.
+SET @alexore_schema_has_display_name = (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'display_name'
+);
+SET @alexore_schema_sql = IF(
+  @alexore_schema_has_display_name = 0,
+  'ALTER TABLE users ADD COLUMN display_name VARCHAR(120) NOT NULL DEFAULT '''' AFTER username',
+  'SELECT 1'
+);
+PREPARE alexore_schema_statement FROM @alexore_schema_sql;
+EXECUTE alexore_schema_statement;
+DEALLOCATE PREPARE alexore_schema_statement;
+UPDATE users SET display_name = 'Alex Ore' WHERE role = 'admin' AND display_name = '';

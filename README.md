@@ -29,11 +29,7 @@ npm run build:xampp
 2. In phpMyAdmin, create a database named `alexore_site` and import `api/schema.sql`.
 3. After approving and committing the source, run `npm run build:xampp`, then open `http://localhost/alexore/studio.html`. On loopback requests, the API uses the local `root` MySQL account with a blank password by default, so no private config file is needed for a standard XAMPP install.
 
-For an existing local database created before admin display names were added, run api/migrate-admin-name.sql once in phpMyAdmin. The current local admin account is labeled Alex Ore. For the existing article table, also run api/migrate-article-metadata.sql once to add tags and remove the stored reading-time column.
-
-The content library table is created automatically on the first API request. If your database account cannot create tables, run `api/migrate-content-items.sql` once in phpMyAdmin.
-
-Article comments and likes are also created automatically for existing databases. If the database account cannot create tables, run `api/migrate-article-engagement.sql` once in phpMyAdmin.
+`api/schema.sql` is the single database setup file. Import it for a new database, or import it again when the schema needs an update. It creates missing tables and applies safe, additive upgrades to older article and admin tables; it does not drop tables or columns. Keep the database selected in phpMyAdmin before importing. The current local admin account is labeled Alex Ore.
 
 4. Create the first admin account from PowerShell in the project folder:
 
@@ -78,8 +74,7 @@ To create the first dashboard account, set `ALEXORE_ADMIN_PASSWORD` in the Power
 
 1. In cPanel’s Database Wizard, create a MySQL database and a dedicated user with access to it.
 2. Import `api/schema.sql` into that database with phpMyAdmin.
-   If the production database user cannot create tables, also import `api/migrate-content-items.sql`.
-   If the production database user cannot create tables, also import `api/migrate-article-engagement.sql`.
+   This is the only schema file to import for table creation and schema updates. Import it with the target database selected. Its `CREATE TABLE IF NOT EXISTS` statements preserve existing tables and data, and its upgrades only add missing columns.
 3. Copy `api/config.example.php` to `~/alexore-config.php` (outside `public_html`) and enter the database credentials.
 4. From the hosting account’s command line, set `ALEXORE_ADMIN_PASSWORD` and run `php public_html/api/create-admin.php alexore` to create your first admin login. The password is stored as a hash in the `users` table.
 5. Upload the files into the domain’s document root. Select a current PHP version with PDO MySQL enabled and enable HTTPS.

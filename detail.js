@@ -1,8 +1,21 @@
 const menuButton = document.querySelector('.menu-button');
+const mainNav = document.querySelector('.main-nav');
+const closeNavigation = () => {
+  mainNav?.classList.remove('open');
+  menuButton?.setAttribute('aria-expanded', 'false');
+  menuButton?.setAttribute('aria-label', 'Open navigation');
+};
 menuButton?.addEventListener('click', () => {
-  const open = document.querySelector('.main-nav')?.classList.toggle('open') || false;
+  const open = mainNav?.classList.toggle('open') || false;
   menuButton.setAttribute('aria-expanded', String(open));
   menuButton.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+});
+document.addEventListener('pointerdown', (event) => {
+  if (mainNav?.classList.contains('open') && !event.target.closest('.main-nav, .menu-button'))
+    closeNavigation();
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeNavigation();
 });
 document.querySelectorAll('.main-nav a').forEach((link) => {
   const url = new URL(link.href, location.href);
@@ -11,9 +24,7 @@ document.querySelectorAll('.main-nav a').forEach((link) => {
 });
 document.querySelectorAll('.main-nav a').forEach((link) =>
   link.addEventListener('click', () => {
-    document.querySelector('.main-nav')?.classList.remove('open');
-    menuButton?.setAttribute('aria-expanded', 'false');
-    menuButton?.setAttribute('aria-label', 'Open navigation');
+    closeNavigation();
   })
 );
 fetch('api/index.php?route=settings', { headers: { Accept: 'application/json' } })

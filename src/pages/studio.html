@@ -109,6 +109,9 @@
 </aside>
 <main class="studio-main">
   <header class="studio-top">
+    <button class="studio-sidebar-toggle" type="button" aria-label="Open studio navigation" aria-expanded="false">
+      ☰
+    </button>
     <a class="back-site" href="index.html">
       ←
       <span>View your site</span>
@@ -350,7 +353,7 @@
           <input id="articleCover" type="text" placeholder="Paste an image URL or upload" />
         </label>
         <button class="image-upload-link" id="coverImageUpload" type="button">
-          ↑ Upload image
+          Choose or upload image
         </button>
       </div>
       <label class="field-label">
@@ -610,4 +613,21 @@
   type="file"
   accept="image/jpeg,image/png,image/webp,image/gif"
 />
+<div id="imagePicker" class="image-picker-backdrop hidden" role="presentation">
+  <section class="image-picker" role="dialog" aria-modal="true" aria-labelledby="imagePickerTitle">
+    <header class="image-picker-header">
+      <div>
+        <div class="eyebrow">YOUR IMAGE LIBRARY</div>
+        <h2 id="imagePickerTitle">Choose an image</h2>
+      </div>
+      <button type="button" id="imagePickerClose" class="image-picker-close" aria-label="Close image picker">Close</button>
+    </header>
+    <div class="image-picker-actions">
+      <p>Select a previously uploaded image, or add a new one.</p>
+      <button type="button" class="button button-dark" id="imagePickerUpload">Upload a new image</button>
+    </div>
+    <div id="imagePickerStatus" class="image-picker-status" role="status"></div>
+    <div id="imagePickerGrid" class="image-picker-grid"></div>
+  </section>
+</div>
 <div id="toast" class="toast"></div>

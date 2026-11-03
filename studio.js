@@ -1,6 +1,31 @@
 // Private publishing studio: authentication, dashboard data, article editing, media uploads, and admin views.
 const $ = (selector) => document.querySelector(selector);
 const API = 'api/index.php';
+const studioMenuButton = $('.studio-sidebar-toggle');
+const closeStudioSidebar = () => {
+  document.body.classList.remove('studio-sidebar-open');
+  studioMenuButton?.setAttribute('aria-expanded', 'false');
+  studioMenuButton?.setAttribute('aria-label', 'Open studio navigation');
+};
+studioMenuButton?.addEventListener('click', () => {
+  const open = document.body.classList.toggle('studio-sidebar-open');
+  studioMenuButton.setAttribute('aria-expanded', String(open));
+  studioMenuButton.setAttribute('aria-label', open ? 'Close studio navigation' : 'Open studio navigation');
+});
+document.querySelector('body')?.addEventListener('click', (event) => {
+  if (
+    document.body.classList.contains('studio-sidebar-open') &&
+    !event.target.closest('.sidebar, .studio-sidebar-toggle')
+  )
+    closeStudioSidebar();
+});
+document.querySelectorAll('.sidebar .side-link').forEach((link) => {
+  link.setAttribute('aria-label', link.textContent.trim().replace(/\s+/g, ' '));
+  link.addEventListener('click', closeStudioSidebar);
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeStudioSidebar();
+});
 let articles = [];
 let contentItems = [];
 let subscribers = [];
@@ -540,7 +565,7 @@ document.querySelectorAll('.editor-toolbar [data-action]').forEach((button) =>
     if (action === 'image') {
       rememberEditorRange();
       uploadTarget = 'body';
-      $('#articleImageFile').click();
+      openImagePicker();
     }
     if (action === 'clear') {
       $('#articleBody').focus();
@@ -555,25 +580,110 @@ document.querySelectorAll('.editor-toolbar [data-action="link"]').forEach((butto
     rememberEditorRange();
   })
 );
+const imagePicker = $('#imagePicker');
+const imagePickerGrid = $('#imagePickerGrid');
+const imagePickerStatus = $('#imagePickerStatus');
+const closeImagePicker = () => imagePicker.classList.add('hidden');
+const applyChosenImage = (url) => {
+  closeImagePicker();
+  if (uploadTarget === 'cover') {
+    $('#articleCover').value = url;
+    scheduleLocalDraft();
+    toast('Featured image selected.');
+    return;
+  }
+  const alt = prompt('Describe the image for readers using screen readers') || '';
+  insertHtmlAtCursor(`<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}">`);
+  scheduleLocalDraft();
+};
+const openImagePicker = async () => {
+  imagePicker.classList.remove('hidden');
+  imagePickerStatus.textContent = 'Loading your images…';
+  imagePickerGrid.innerHTML = '';
+  $('#imagePickerClose')?.focus();
+  try {
+    const response = await fetch(`${API}?route=images`, {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'The image library could not be loaded.');
+    const images = result.images || [];
+    imagePickerStatus.textContent = images.length
+      ? `${images.length} image${images.length === 1 ? '' : 's'} in your library`
+      : 'No uploaded images yet. Upload one to get started.';
+    imagePickerGrid.innerHTML = images
+      .map(
+        (image) =>
+          `<button type="button" class="image-picker-item" data-image-url="${escapeHtml(image.url)}" aria-label="Use image ${escapeHtml(image.url.split('/').pop())}"><img src="${escapeHtml(image.url)}" alt="" loading="lazy"><span>${Number(image.width)} × ${Number(image.height)}</span></button>`
+      )
+      .join('');
+  } catch (error) {
+    imagePickerStatus.textContent = error.message;
+  }
+};
 $('#coverImageUpload').addEventListener('click', () => {
   uploadTarget = 'cover';
+  openImagePicker();
+});
+$('#imagePickerClose').addEventListener('click', closeImagePicker);
+$('#imagePickerUpload').addEventListener('click', () => {
+  closeImagePicker();
   $('#articleImageFile').click();
 });
+imagePicker.addEventListener('click', (event) => {
+  if (event.target === imagePicker) closeImagePicker();
+});
+imagePickerGrid.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-image-url]');
+  if (button) applyChosenImage(button.dataset.imageUrl);
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !imagePicker.classList.contains('hidden')) closeImagePicker();
+});
+const compressImageForUpload = async (file) => {
+  if (file.type === 'image/gif') return file;
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = objectUrl;
+    await image.decode();
+    const scale = Math.min(1, 2000 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.getContext('2d', { alpha: true }).drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.82));
+    if (!blob || !blob.type.startsWith('image/')) return file;
+    if (blob.size >= file.size) return file;
+    const extension = blob.type === 'image/webp' ? 'webp' : blob.type === 'image/jpeg' ? 'jpg' : 'png';
+    return new File([blob], `image.${extension}`, { type: blob.type, lastModified: file.lastModified });
+  } catch {
+    return file;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
 $('#articleImageFile').addEventListener('change', async (event) => {
   const file = event.currentTarget.files?.[0];
   event.currentTarget.value = '';
   if (!file) return;
-  if (file.size > 8 * 1024 * 1024) {
-    toast('Images must be smaller than 8 MB.');
+  if (file.size > 24 * 1024 * 1024) {
+    toast('Choose an image smaller than 24 MB.');
     return;
   }
   if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
     toast('Choose a JPG, PNG, GIF, or WebP image.');
     return;
   }
-  const form = new FormData();
-  form.append('image', file);
   try {
+    const uploadFile = await compressImageForUpload(file);
+    if (uploadFile.size > 8 * 1024 * 1024) {
+      toast('This image is still larger than 8 MB after compression.');
+      return;
+    }
+    const form = new FormData();
+    form.append('image', uploadFile);
     const response = await fetch(`${API}?route=upload`, {
       method: 'POST',
       headers: { Accept: 'application/json', 'X-CSRF-Token': csrfToken },
@@ -589,7 +699,7 @@ $('#articleImageFile').addEventListener('change', async (event) => {
       const alt = prompt('Describe the image for readers using screen readers') || '';
       insertHtmlAtCursor(`<img src="${escapeHtml(result.url)}" alt="${escapeHtml(alt)}">`);
     }
-    toast('Image uploaded.');
+    toast(uploadFile.size < file.size ? 'Image compressed and uploaded.' : 'Image uploaded.');
   } catch (error) {
     toast(error.message);
   }

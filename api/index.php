@@ -216,82 +216,55 @@ try {
   ]);
 }
 
-// Keep newly added publishing features available on existing XAMPP installs
-// without requiring the original database schema to be re-imported.
-$contentSchemaReady = true;
-try {
-  $pdo->exec("CREATE TABLE IF NOT EXISTS content_items (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    kind ENUM('book','product','video','podcast') NOT NULL,
-    slug VARCHAR(220) NOT NULL UNIQUE,
-    title VARCHAR(240) NOT NULL,
-    category VARCHAR(80) NOT NULL DEFAULT 'Notes',
-    tags TEXT NOT NULL,
-    summary VARCHAR(500) NOT NULL DEFAULT '',
-    body MEDIUMTEXT NOT NULL,
-    cover_image VARCHAR(2048) NOT NULL DEFAULT '',
-    media_url VARCHAR(2048) NOT NULL DEFAULT '',
-    asset_url VARCHAR(2048) NOT NULL DEFAULT '',
-    purchase_url VARCHAR(2048) NOT NULL DEFAULT '',
-    price DECIMAL(10,2) NULL,
-    currency CHAR(3) NOT NULL DEFAULT 'NGN',
-    status ENUM('draft','published') NOT NULL DEFAULT 'draft',
-    published_at DATETIME NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_content_public (status, kind, published_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-} catch (Throwable $error) {
-  $contentSchemaReady = false;
-  error_log('alexore content table setup failed: ' . $error->getMessage());
-}
-
-$engagementSchemaReady = true;
-try {
-  $pdo->exec("CREATE TABLE IF NOT EXISTS article_likes (
-        article_id BIGINT UNSIGNED NOT NULL,
-        visitor_hash CHAR(64) NOT NULL,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (article_id, visitor_hash),
-        CONSTRAINT fk_article_likes_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-  $pdo->exec("CREATE TABLE IF NOT EXISTS article_comments (
-        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        article_id BIGINT UNSIGNED NOT NULL,
-        display_name VARCHAR(120) NOT NULL DEFAULT 'Anonymous',
-        email VARCHAR(254) NULL,
-        is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
-        comment_text TEXT NOT NULL,
-        status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_article_comments_public (article_id, status, created_at),
-        INDEX idx_article_comments_moderation (status, created_at),
-        CONSTRAINT fk_article_comments_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-} catch (Throwable $error) {
-  $engagementSchemaReady = false;
-  error_log('alexore engagement tables setup failed: ' . $error->getMessage());
-}
-
-$contactSchemaReady = true;
-try {
-  $pdo->exec("CREATE TABLE IF NOT EXISTS contact_messages (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(120) NOT NULL,
-    email VARCHAR(254) NOT NULL,
-    subject VARCHAR(180) NOT NULL,
-    message TEXT NOT NULL,
-    status ENUM('new','read') NOT NULL DEFAULT 'new',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_contact_messages_status (status, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-} catch (Throwable $error) {
-  $contactSchemaReady = false;
-  error_log('alexore contact table setup failed: ' . $error->getMessage());
+// Table creation and additive upgrades live in api/schema.sql. Check their
+// presence here without requiring CREATE privileges or changing live data.
+$tableExists = static function (PDO $connection, string $table): bool {
+  if (!preg_match('/^[a-z_]+$/', $table)) {
+    return false;
+  }
+  try {
+    $connection->query("SELECT 1 FROM `{$table}` LIMIT 0");
+    return true;
+  } catch (Throwable) {
+    return false;
+  }
+};
+$contentSchemaReady = $tableExists($pdo, 'content_items');
+$engagementSchemaReady =
+  $tableExists($pdo, 'article_likes') && $tableExists($pdo, 'article_comments');
+$contactSchemaReady = $tableExists($pdo, 'contact_messages');
+if (!$contentSchemaReady || !$engagementSchemaReady || !$contactSchemaReady) {
+  error_log('alexore database tables are missing; import api/schema.sql.');
 }
 
 $route = $_GET['route'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+if ($route === 'images' && $method === 'GET') {
+  require_admin();
+  $uploadDirectory = dirname(__DIR__) . '/uploads';
+  $images = [];
+  if (is_dir($uploadDirectory)) {
+    foreach (glob($uploadDirectory . '/*.{jpg,jpeg,png,webp,gif}', GLOB_BRACE) ?: [] as $path) {
+      $filename = basename($path);
+      if (!preg_match('/^[a-f0-9]{32}\.(jpg|jpeg|png|webp|gif)$/i', $filename)) {
+        continue;
+      }
+      $imageInfo = @getimagesize($path);
+      if (!$imageInfo || !str_starts_with((string) ($imageInfo['mime'] ?? ''), 'image/')) {
+        continue;
+      }
+      $images[] = [
+        'url' => 'uploads/' . $filename,
+        'width' => (int) $imageInfo[0],
+        'height' => (int) $imageInfo[1],
+        'uploadedAt' => (int) (filemtime($path) ?: 0),
+      ];
+    }
+    usort($images, static fn(array $a, array $b): int => $b['uploadedAt'] <=> $a['uploadedAt']);
+  }
+  respond(200, ['images' => $images]);
+}
 
 if ($route === 'upload' && $method === 'POST') {
   require_admin();
@@ -499,7 +472,8 @@ if ($route === 'messages' && $method === 'GET') {
   require_admin();
   if (!$contactSchemaReady) {
     respond(503, [
-      'error' => 'The contact message inbox is unavailable. Check database permissions.',
+      'error' =>
+        'The contact message inbox is unavailable. Import api/schema.sql with this database selected.',
     ]);
   }
   $rows = $pdo
@@ -514,7 +488,8 @@ if ($route === 'messages' && $method === 'POST') {
   require_csrf();
   if (!$contactSchemaReady) {
     respond(503, [
-      'error' => 'The contact message inbox is unavailable. Check database permissions.',
+      'error' =>
+        'The contact message inbox is unavailable. Import api/schema.sql with this database selected.',
     ]);
   }
   $input = body_json();
@@ -529,7 +504,7 @@ if ($route === 'messages' && $method === 'POST') {
 if ($route === 'comments' && $method === 'GET') {
   if (!$engagementSchemaReady) {
     respond(503, [
-      'error' => 'Comments are not available until the database tables can be created.',
+      'error' => 'Comments are unavailable. Import api/schema.sql with this database selected.',
     ]);
   }
   if (($_GET['include'] ?? '') === 'all') {
@@ -560,7 +535,7 @@ if ($route === 'comments' && $method === 'GET') {
 if ($route === 'comments' && $method === 'POST') {
   if (!$engagementSchemaReady) {
     respond(503, [
-      'error' => 'Comments are not available until the database tables can be created.',
+      'error' => 'Comments are unavailable. Import api/schema.sql with this database selected.',
     ]);
   }
   $input = body_json();
@@ -638,7 +613,9 @@ if ($route === 'comments' && $method === 'POST') {
 
 if ($route === 'like' && $method === 'GET') {
   if (!$engagementSchemaReady) {
-    respond(503, ['error' => 'Likes are not available until the database tables can be created.']);
+    respond(503, [
+      'error' => 'Likes are unavailable. Import api/schema.sql with this database selected.',
+    ]);
   }
   $slug = trim((string) ($_GET['slug'] ?? ''));
   $visitorId = (string) ($_GET['visitorId'] ?? '');
@@ -665,7 +642,9 @@ if ($route === 'like' && $method === 'GET') {
 }
 if ($route === 'like' && $method === 'POST') {
   if (!$engagementSchemaReady) {
-    respond(503, ['error' => 'Likes are not available until the database tables can be created.']);
+    respond(503, [
+      'error' => 'Likes are unavailable. Import api/schema.sql with this database selected.',
+    ]);
   }
   $input = body_json();
   $slug = trim((string) ($input['slug'] ?? ''));
@@ -704,7 +683,7 @@ if ($route === 'content' && $method === 'GET') {
   if (!$contentSchemaReady) {
     respond(503, [
       'error' =>
-        'The content library table is unavailable. Run api/migrate-content-items.sql or grant the database account CREATE TABLE permission.',
+        'The content library table is unavailable. Import api/schema.sql with this database selected.',
     ]);
   }
   $admin = !empty($_SESSION['alexore_admin']) && ($_GET['include'] ?? '') === 'all';
@@ -738,7 +717,7 @@ if ($route === 'content-item' && $method === 'GET') {
   if (!$contentSchemaReady) {
     respond(503, [
       'error' =>
-        'The content library table is unavailable. Run api/migrate-content-items.sql or grant the database account CREATE TABLE permission.',
+        'The content library table is unavailable. Import api/schema.sql with this database selected.',
     ]);
   }
   $statement = $pdo->prepare(
@@ -755,7 +734,7 @@ if ($route === 'content' && $method === 'POST') {
   if (!$contentSchemaReady) {
     respond(503, [
       'error' =>
-        'The content library table is unavailable. Run api/migrate-content-items.sql or grant the database account CREATE TABLE permission.',
+        'The content library table is unavailable. Import api/schema.sql with this database selected.',
     ]);
   }
   require_admin();

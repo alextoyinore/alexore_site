@@ -1,0 +1,6 @@
+RewriteEngine On
+
+# Redirect the production domain to HTTPS without affecting local XAMPP.
+RewriteCond %{HTTP_HOST} ^(www\.)?alexore\.com\.ng$ [NC]
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]

@@ -5,3 +5,5 @@ return [
   'db_user' => 'cpanelprefix_alexoreuser',
   'db_password' => 'replace-with-a-long-random-database-password',
 ];
+
+$2y$10$7X5bSY2IFV/EdnYnXUtF1eWk4GP1TkYh8Eg5YXxyS.yw3VmSzGR5y

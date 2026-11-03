@@ -20,5 +20,8 @@ Thumbs.db
 node_modules/
 dist/
 /public/
+!/public/
+/public/*
+!/public/.htaccess
 dev-server.log
 dev-server.err

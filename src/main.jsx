@@ -14,10 +14,12 @@ import contact from './pages/contact.html?raw';
 import framework from './pages/framework.html?raw';
 import media from './pages/media.html?raw';
 import products from './pages/products.html?raw';
+import privacy from './pages/privacy.html?raw';
 import search from './pages/search.html?raw';
 import speaking from './pages/speaking.html?raw';
 import studio from './pages/studio.html?raw';
 import teaching from './pages/teaching.html?raw';
+import terms from './pages/terms.html?raw';
 
 const pages = {
   'index.html': home,
@@ -31,10 +33,12 @@ const pages = {
   'framework.html': framework,
   'media.html': media,
   'products.html': products,
+  'privacy.html': privacy,
   'search.html': search,
   'speaking.html': speaking,
   'studio.html': studio,
   'teaching.html': teaching,
+  'terms.html': terms,
 };
 const legacyModules = import.meta.glob([
   '../app.js',
@@ -78,10 +82,12 @@ const pageScripts = {
   'framework.html': ['detail.js', 'header-search.js'],
   'media.html': ['detail.js', 'catalog.js', 'header-search.js'],
   'products.html': ['detail.js', 'catalog.js', 'header-search.js'],
+  'privacy.html': ['detail.js', 'header-search.js'],
   'search.html': ['search.js', 'detail.js', 'header-search.js'],
   'speaking.html': ['detail.js', 'header-search.js'],
   'studio.html': ['studio.js'],
   'teaching.html': ['detail.js', 'header-search.js'],
+  'terms.html': ['detail.js', 'header-search.js'],
 };
 
 function nodeProps(element) {
@@ -142,7 +148,7 @@ function ReactSite() {
       main: doc.querySelector('main'),
       login: doc.querySelector('#loginScreen'),
       sidebar: doc.querySelector('.sidebar'),
-      extras: [...doc.querySelectorAll('#editorPage, #articleImageFile, #toast')],
+      extras: [...doc.querySelectorAll('#editorPage, #articleImageFile, #imagePicker, #toast')],
       title: doc.title,
     };
   });

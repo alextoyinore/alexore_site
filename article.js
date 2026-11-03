@@ -326,6 +326,40 @@ function sampleCoverMarkup(slug) {
   return covers[slug] || '';
 }
 
+function sampleArticleCoverColor(source, excerpt) {
+  if (!source || !excerpt) return;
+  const image = new Image();
+  if (/^https?:\/\//i.test(source)) image.crossOrigin = 'anonymous';
+  image.onload = () => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 24;
+      canvas.height = 24;
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      if (!context) return;
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const total = [0, 0, 0];
+      let samples = 0;
+      for (let index = 0; index < pixels.length; index += 4) {
+        if (pixels[index + 3] < 200) continue;
+        total[0] += pixels[index];
+        total[1] += pixels[index + 1];
+        total[2] += pixels[index + 2];
+        samples += 1;
+      }
+      if (!samples) return;
+      const average = total.map((channel) => channel / samples);
+      const color = (channels) => `rgb(${channels.map((value) => Math.round(value)).join(', ')})`;
+      excerpt.style.setProperty('--excerpt-bg', color(average.map((channel) => channel * 0.18 + 255 * 0.82)));
+      excerpt.style.setProperty('--excerpt-accent', color(average.map((channel) => channel * 0.78)));
+    } catch {
+      // Cross-origin images without CORS permission keep the article's default excerpt colors.
+    }
+  };
+  image.src = source;
+}
+
 function renderArticle(item) {
   const readingTime = articleReadingTime(item.body || '');
   const tags = String(item.tags || '')
@@ -342,7 +376,7 @@ function renderArticle(item) {
         item.deck ||
         'Notes on work, money, becoming, and conversations that matter. Christ-like.'
     );
-  root.innerHTML = `<article class="article-wrap"><a class="article-back" href="writing.html">← Back to the notebook</a>${item.sample ? '<p class="article-sample-note">SAMPLE ARTICLE · PREVIEW CONTENT</p>' : ''}<div class="article-meta article-meta-top"><a href="browse.html?category=${encodeURIComponent(item.category)}">${escapeHtml(item.category).toUpperCase()}</a> · ${escapeHtml(readingTime).toUpperCase()} · ${escapeHtml(item.date)}</div><div class="article-hero ${sampleCover ? 'has-sample-art' : ''}">${sampleCover}</div><div class="article-meta">ALEXORE · ${escapeHtml(item.date).toUpperCase()}</div><h1>${escapeHtml(item.title)}</h1><p class="article-deck">${escapeHtml(item.deck)}</p>${tags.length ? `<div class="article-tags" aria-label="Article tags">${tags.map((tag) => `<a href="browse.html?tag=${encodeURIComponent(tag)}">${escapeHtml(tag)}</a>`).join('')}</div>` : ''}<div class="article-body">${cleanArticleHtml(item.body || '<p>This story is just getting started.</p>')}</div><section class="article-engagement" aria-label="Article reactions and comments"><div class="article-like-row"><div><div class="eyebrow">A NOTE BACK</div><p>If this stayed with you, leave a little appreciation.</p></div><button class="article-like-button" id="articleLikeButton" type="button" aria-pressed="false"><span aria-hidden="true">♡</span><span id="articleLikeCount">${Number(item.likeCount) || 0} likes</span></button></div><div class="comments-section"><div class="comments-heading"><div><h2>Join the conversation</h2><p>No account needed. Comments are reviewed before they appear.</p></div><span class="eyebrow" id="articleCommentCount">${Number(item.commentCount) || 0} COMMENTS</span></div><div class="comment-list" id="articleCommentList" aria-live="polite"><p class="comment-empty">Loading comments…</p></div><form class="comment-form" id="articleCommentForm"><h3>Leave a comment</h3><p>Share a thoughtful response. Your email will stay private.</p><label class="comment-check"><input type="checkbox" name="anonymous"> <span>Comment anonymously</span></label><div id="commentIdentity"><label>Your name<input name="name" autocomplete="name" maxlength="120" required></label><label>Email address<input name="email" type="email" autocomplete="email" maxlength="254" required></label><label class="comment-check"><input type="checkbox" name="newsletter"> <span>Also add me to the occasional email newsletter.</span></label></div><label>Your comment<textarea name="comment" maxlength="3000" required></textarea></label><small>Up to 3,000 characters. No links or HTML are needed.</small><button class="button button-dark" type="submit">Post comment <span>↗</span></button><p class="comment-message" id="commentMessage" role="status"></p></form></div></section><div class="article-bottom"><a href="writing.html">← More writing</a><a href="index.html#newsletter">Get the notes ↗</a></div></article>`;
+  root.innerHTML = `<article class="article-wrap"><a class="article-back" href="writing.html">← Back to the notebook</a>${item.sample ? '<p class="article-sample-note">SAMPLE ARTICLE · PREVIEW CONTENT</p>' : ''}<div class="article-meta article-meta-top"><a href="browse.html?category=${encodeURIComponent(item.category)}">${escapeHtml(item.category).toUpperCase()}</a> · ${escapeHtml(readingTime).toUpperCase()} · ${escapeHtml(item.date)}</div><div class="article-hero ${sampleCover ? 'has-sample-art' : ''}">${sampleCover}</div><div class="article-meta">ALEXORE · ${escapeHtml(item.date).toUpperCase()}</div><h1>${escapeHtml(item.title)}</h1><p class="article-deck">${escapeHtml(item.deck)}</p>${tags.length ? `<div class="article-tags" aria-label="Article tags">${tags.map((tag) => `<a href="browse.html?tag=${encodeURIComponent(tag)}">${escapeHtml(tag)}</a>`).join('')}</div>` : ''}<div class="article-body">${cleanArticleHtml(item.body || '<p>This story is just getting started.</p>')}</div><section class="article-engagement" aria-label="Article reactions and comments"><div class="article-like-row"><div><div class="eyebrow">A NOTE BACK</div><p>If this stayed with you, leave a little appreciation.</p></div><button class="article-like-button" id="articleLikeButton" type="button" aria-pressed="false"><span aria-hidden="true">♡</span><span id="articleLikeCount">${Number(item.likeCount) || 0} likes</span></button></div><div class="comments-section"><div class="comments-heading"><div><h2>Join the conversation</h2><p>No account needed. Comments are reviewed before they appear.</p></div><span class="eyebrow" id="articleCommentCount">${Number(item.commentCount) || 0} COMMENTS</span></div><div class="comment-list" id="articleCommentList" aria-live="polite"><p class="comment-empty">Loading comments…</p></div><form class="comment-form" id="articleCommentForm"><h3>Leave a comment</h3><p>Share a thoughtful response.</p><label class="comment-check"><input type="checkbox" name="anonymous"> <span>Comment anonymously</span></label><div id="commentIdentity"><p class="comment-privacy-notice">For a non-anonymous comment, we collect your name and email to review and manage your comment and prevent abuse. We rely on our legitimate interests for this; your name may appear with an approved comment, but your email stays private and is not used for the newsletter. <a href="privacy.html">Read the Privacy Policy</a>. Choose anonymous commenting to leave out your name and email.</p><label>Your name<input name="name" autocomplete="name" maxlength="120" required></label><label>Email address<input name="email" type="email" autocomplete="email" maxlength="254" required></label><label class="comment-check"><input type="checkbox" name="newsletter"> <span>Separately, add me to the occasional email newsletter.</span></label></div><label>Your comment<textarea name="comment" maxlength="3000" required></textarea></label><small>Up to 3,000 characters. No links or HTML are needed.</small><button class="button button-dark" type="submit">Post comment <span>↗</span></button><p class="comment-message" id="commentMessage" role="status"></p></form></div></section><div class="article-bottom"><a href="writing.html">← More writing</a><a href="index.html#newsletter">Get the notes ↗</a></div></article>`;
   installCommentEditor();
   const likeMark = root.querySelector('#articleLikeButton [aria-hidden="true"]');
   likeMark.outerHTML =
@@ -354,6 +388,7 @@ function renderArticle(item) {
     hero.style.backgroundSize = 'cover';
     hero.style.backgroundPosition = 'center';
     hero.classList.add('has-cover');
+    sampleArticleCoverColor(item.coverImage, root.querySelector('.article-deck'));
   }
   if (!item.sample) setupArticleEngagement(item);
   else {
