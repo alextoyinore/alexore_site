@@ -307,21 +307,9 @@ function openEditor(article = null) {
   $('#articleBody').contentEditable = 'true';
   $('#previewArticle').textContent = 'Preview';
   $('#articleBody').classList.remove('preview-mode');
-  const localDraft = !article ? localStorage.getItem(draftKey()) : null;
-  if (localDraft) {
-    try {
-      const draft = JSON.parse(localDraft);
-      $('#articleTitle').value = draft.title || '';
-      $('#articleCategory').value = draft.category || 'Becoming';
-      $('#articleTags').value = draft.tags || '';
-      $('#articleDeck').value = draft.deck || '';
-      $('#articleCover').value = draft.coverImage || '';
-      $('#articleSeo').value = draft.seoDescription || '';
-      $('#articleBody').innerHTML = draft.body || '';
-    } catch {
-      localStorage.removeItem(draftKey());
-    }
-  }
+  // A new article always starts blank. The browser's shared "new" draft key
+  // can contain an abandoned article, so never hydrate it into a fresh post.
+  if (!article) localStorage.removeItem(draftKey());
   updateWritingStats();
   startServerAutosave();
   ['.studio-heading', '#stats', '#overviewPanels', '#bottomPanels', '#detailPanel'].forEach(
