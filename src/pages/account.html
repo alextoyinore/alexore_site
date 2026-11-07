@@ -1,0 +1,36 @@
+<title>Account — alexore</title>
+<main class="account-page page-width" id="accountRoot">
+  <div class="eyebrow">ALEXORE COMMUNITY</div>
+  <h1>Your account.</h1>
+  <p class="account-intro">Sign in to join the conversation and leave a note on the articles.</p>
+  <section class="account-panel" id="accountForms">
+    <div class="account-mode-switch" aria-label="Account options">
+      <a href="account.html?mode=login" data-account-mode="login">Log in</a>
+      <a href="account.html?mode=register" data-account-mode="register">Create account</a>
+    </div>
+    <form id="memberLoginForm" class="account-form">
+      <h2>Welcome back.</h2>
+      <label>Email address<input type="email" name="email" autocomplete="email" maxlength="254" required></label>
+      <label>Password<input type="password" name="password" autocomplete="current-password" minlength="10" maxlength="72" required></label>
+      <button class="button button-dark" type="submit">Log in <span>↗</span></button>
+      <p class="account-message" role="status" aria-live="polite"></p>
+    </form>
+    <form id="memberRegisterForm" class="account-form" hidden>
+      <h2>Create your account.</h2>
+      <label>Your name<input type="text" name="fullName" autocomplete="name" minlength="2" maxlength="120" required></label>
+      <label>Email address<input type="email" name="email" autocomplete="email" maxlength="254" required></label>
+      <label>Password<input type="password" name="password" autocomplete="new-password" minlength="10" maxlength="72" required></label>
+      <small>Use at least 10 characters. Your email is kept private and is used for account sign-in and comment moderation.</small>
+      <button class="button button-dark" type="submit">Create account <span>↗</span></button>
+      <p class="account-message" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+  <section class="account-panel account-profile" id="accountProfile" hidden>
+    <div class="eyebrow">YOUR ALEXORE ACCOUNT</div>
+    <h2 id="accountProfileName"></h2>
+    <p id="accountProfileEmail"></p>
+    <p>You can comment and like articles while you’re signed in. Reo student accounts are recognized automatically when you visit from the same browser.</p>
+    <button class="button button-outline" type="button" id="accountLogout">Log out</button>
+    <p class="account-message" role="status" aria-live="polite"></p>
+  </section>
+</main>

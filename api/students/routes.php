@@ -77,6 +77,7 @@ foreach (
     'students',
     'assignments',
     'student_submissions',
+    'student_attendance',
     'pair_reviews',
     'student_forum_posts',
     'student_forum_comments',
@@ -114,6 +115,8 @@ if ($route === 'student-auth' && $method === 'GET') {
   }
   if (!$student) {
     unset($_SESSION['ore_student_id'], $_SESSION['ore_student_matric']);
+  } else {
+    unset($_SESSION['alexore_sso_suppressed']);
   }
   if (empty($_SESSION['ore_student_csrf'])) {
     $_SESSION['ore_student_csrf'] = bin2hex(random_bytes(32));
@@ -132,6 +135,9 @@ if ($route === 'student-auth' && $method === 'POST') {
   if ($action === 'logout') {
     require_student_csrf();
     unset($_SESSION['ore_student_id'], $_SESSION['ore_student_matric'], $_SESSION['ore_student_department'], $_SESSION['ore_student_level']);
+    if (($_SESSION['alexore_member_source'] ?? '') === 'reo') {
+      unset($_SESSION['alexore_member_id'], $_SESSION['alexore_member_source'], $_SESSION['alexore_member_csrf']);
+    }
     $_SESSION['ore_student_csrf'] = bin2hex(random_bytes(32));
     respond(200, ['authenticated' => false]);
   }
@@ -273,16 +279,21 @@ if ($route === 'student-dashboard' && $method === 'GET') {
   $studentId = require_student();
   $studentDepartment = (string) $_SESSION['ore_student_department'];
   $studentLevel = (string) $_SESSION['ore_student_level'];
+  $attendanceQuery = $pdo->prepare('SELECT COUNT(*) FROM student_attendance WHERE student_id=?');
+  $attendanceQuery->execute([$studentId]);
+  $attendancePoints = (int) $attendanceQuery->fetchColumn();
+  $attendanceHistory = $pdo->prepare('SELECT a.title AS assignmentTitle,sa.awarded_at AS awardedAt FROM student_attendance sa JOIN assignments a ON a.id=sa.assignment_id WHERE sa.student_id=? ORDER BY sa.awarded_at DESC LIMIT 20');
+  $attendanceHistory->execute([$studentId]);
   $assignments = $pdo->prepare(
-    "SELECT a.id,a.title,a.question,IF(a.status='open' AND (a.due_at IS NULL OR a.due_at>=NOW()),'open','closed') AS status,a.pair_review AS pairReview,DATE_FORMAT(a.due_at,'%Y-%m-%dT%H:%i') AS dueAt,s.id AS submissionId,s.body AS submissionBody,s.submitted_at AS submittedAt,s.instructor_score AS score,s.instructor_feedback AS instructorFeedback,pr.peerScore,pr.peerReviewCount FROM assignments a LEFT JOIN student_submissions s ON s.assignment_id=a.id AND s.student_id=? LEFT JOIN (SELECT submission_id,AVG(score) AS peerScore,COUNT(score) AS peerReviewCount FROM pair_reviews GROUP BY submission_id) pr ON pr.submission_id=s.id WHERE (a.department IS NULL OR a.department=?) AND (a.level IS NULL OR a.level=?) ORDER BY a.created_at DESC",
+    "SELECT a.id,a.title,a.question,IF(a.status='open' AND (a.due_at IS NULL OR a.due_at>=NOW()),'open','closed') AS status,a.pair_review AS pairReview,DATE_FORMAT(a.due_at,'%Y-%m-%dT%H:%i') AS dueAt,s.id AS submissionId,s.body AS submissionBody,s.submitted_at AS submittedAt,s.instructor_score AS score,s.instructor_feedback AS instructorFeedback,pr.peerScore,pr.peerReviewCount FROM assignments a LEFT JOIN student_submissions s ON s.assignment_id=a.id AND s.student_id=? LEFT JOIN (SELECT submission_id,AVG(score) AS peerScore,COUNT(score) AS peerReviewCount FROM pair_reviews GROUP BY submission_id) pr ON pr.submission_id=s.id WHERE (a.department IS NULL OR FIND_IN_SET(LOWER(?),LOWER(REPLACE(a.department, ', ', ',')))>0) AND (a.level IS NULL OR a.level=?) ORDER BY a.created_at DESC",
   );
   $assignments->execute([$studentId, $studentDepartment, $studentLevel]);
   $reviews = $pdo->prepare(
-    'SELECT pr.id AS reviewId,pr.score,pr.feedback,pr.reviewed_at AS reviewedAt,ss.id AS submissionId,ss.body AS submissionBody,a.id AS assignmentId,a.title AS assignmentTitle,st.full_name AS authorName FROM pair_reviews pr JOIN student_submissions ss ON ss.id=pr.submission_id JOIN assignments a ON a.id=ss.assignment_id JOIN students st ON st.id=ss.student_id WHERE pr.reviewer_student_id=? AND a.pair_review=1 AND (a.department IS NULL OR a.department=?) AND (a.level IS NULL OR a.level=?) ORDER BY pr.reviewed_at IS NULL DESC,ss.submitted_at DESC',
+    "SELECT pr.id AS reviewId,pr.score,pr.feedback,pr.reviewed_at AS reviewedAt,ss.id AS submissionId,ss.body AS submissionBody,a.id AS assignmentId,a.title AS assignmentTitle,st.full_name AS authorName FROM pair_reviews pr JOIN student_submissions ss ON ss.id=pr.submission_id JOIN assignments a ON a.id=ss.assignment_id JOIN students st ON st.id=ss.student_id WHERE pr.reviewer_student_id=? AND a.pair_review=1 AND (a.department IS NULL OR FIND_IN_SET(LOWER(?),LOWER(REPLACE(a.department, ', ', ',')))>0) AND (a.level IS NULL OR a.level=?) ORDER BY pr.reviewed_at IS NULL DESC,ss.submitted_at DESC",
   );
   $reviews->execute([$studentId, $studentDepartment, $studentLevel]);
   $peerFeedbackQuery = $pdo->prepare(
-    'SELECT a.title AS assignmentTitle,pr.score,pr.feedback,pr.reviewed_at AS reviewedAt,st.full_name AS reviewerName FROM pair_reviews pr JOIN student_submissions ss ON ss.id=pr.submission_id JOIN assignments a ON a.id=ss.assignment_id JOIN students st ON st.id=pr.reviewer_student_id WHERE ss.student_id=? AND a.pair_review=1 AND pr.reviewed_at IS NOT NULL AND (a.department IS NULL OR a.department=?) AND (a.level IS NULL OR a.level=?) ORDER BY pr.reviewed_at DESC',
+    "SELECT a.title AS assignmentTitle,pr.score,pr.feedback,pr.reviewed_at AS reviewedAt,st.full_name AS reviewerName FROM pair_reviews pr JOIN student_submissions ss ON ss.id=pr.submission_id JOIN assignments a ON a.id=ss.assignment_id JOIN students st ON st.id=pr.reviewer_student_id WHERE ss.student_id=? AND a.pair_review=1 AND pr.reviewed_at IS NOT NULL AND (a.department IS NULL OR FIND_IN_SET(LOWER(?),LOWER(REPLACE(a.department, ', ', ',')))>0) AND (a.level IS NULL OR a.level=?) ORDER BY pr.reviewed_at DESC",
   );
   $peerFeedbackQuery->execute([$studentId, $studentDepartment, $studentLevel]);
   $articles = $pdo
@@ -332,6 +343,8 @@ if ($route === 'student-dashboard' && $method === 'GET') {
     'assignments' => $assignments->fetchAll(),
     'reviews' => $reviews->fetchAll(),
     'peerFeedback' => $peerFeedbackQuery->fetchAll(),
+    'attendancePoints' => $attendancePoints,
+    'attendanceHistory' => $attendanceHistory->fetchAll(),
     'articles' => $articles,
     'forum' => $posts,
     'siteUrl' => $siteUrl,
@@ -369,6 +382,58 @@ if ($route === 'assignment-submissions' && $method === 'GET') {
   $submissions->execute([$assignmentId, $search, $pattern, $pattern, $pattern]);
   respond(200, ['submissions' => $submissions->fetchAll(), 'total' => $total, 'page' => $page, 'pageSize' => $pageSize]);
 }
+if ($route === 'student-records' && $method === 'GET') {
+  require_admin();
+  $studentId = filter_var($_GET['studentId'] ?? null, FILTER_VALIDATE_INT) ?: null;
+  if ($studentId) {
+    $studentQuery = $pdo->prepare(
+      'SELECT st.id,st.full_name AS fullName,st.email,st.matric_number AS matricNumber,st.phone,st.department,st.level,st.is_active AS isActive,st.created_at AS createdAt,(SELECT COUNT(*) FROM student_attendance sa WHERE sa.student_id=st.id) AS attendancePoints,(SELECT COUNT(*) FROM student_submissions ss WHERE ss.student_id=st.id) AS submissionTotal,(SELECT COUNT(*) FROM student_submissions ss WHERE ss.student_id=st.id AND ss.instructor_score IS NOT NULL) AS gradedTotal,(SELECT AVG(ss.instructor_score) FROM student_submissions ss WHERE ss.student_id=st.id AND ss.instructor_score IS NOT NULL) AS averageGrade,(SELECT COUNT(*) FROM student_activity_log l WHERE l.student_id=st.id) AS activityTotal FROM students st WHERE st.id=? LIMIT 1',
+    );
+    $studentQuery->execute([$studentId]);
+    $record = $studentQuery->fetch();
+    if (!$record) respond(404, ['error' => 'Student record not found.']);
+    $submissionPage = max(1, (int) ($_GET['submissionPage'] ?? 1));
+    $activityPage = max(1, (int) ($_GET['activityPage'] ?? 1));
+    $detailPageSize = 25;
+    $submissions = $pdo->prepare('SELECT a.title AS assignmentTitle,ss.submitted_at AS submittedAt,ss.instructor_score AS score,ss.instructor_feedback AS feedback FROM student_submissions ss JOIN assignments a ON a.id=ss.assignment_id WHERE ss.student_id=? ORDER BY ss.submitted_at DESC LIMIT ' . $detailPageSize . ' OFFSET ' . (($submissionPage - 1) * $detailPageSize));
+    $submissions->execute([$studentId]);
+    $activity = $pdo->prepare('SELECT l.event_type AS eventType,l.created_at AS createdAt,a.title AS assignmentTitle FROM student_activity_log l LEFT JOIN assignments a ON a.id=l.assignment_id WHERE l.student_id=? ORDER BY l.created_at DESC,l.id DESC LIMIT ' . $detailPageSize . ' OFFSET ' . (($activityPage - 1) * $detailPageSize));
+    $activity->execute([$studentId]);
+    $recordActivity = $activity->fetchAll();
+    foreach ($recordActivity as &$event) {
+      $event['description'] = match ($event['eventType']) {
+        'registered' => 'Created student account',
+        'matric_added' => 'Added matric number',
+        'profile_completed' => 'Completed student profile',
+        'submission_created' => 'Submitted ' . ($event['assignmentTitle'] ?: 'an assignment'),
+        'submission_updated' => 'Updated a submission for ' . ($event['assignmentTitle'] ?: 'an assignment'),
+        'attendance_awarded' => 'Earned an attendance point for ' . ($event['assignmentTitle'] ?: 'an assignment'),
+        'pair_review_submitted' => 'Completed a pair review',
+        'grade_posted' => 'Received a grade for ' . ($event['assignmentTitle'] ?: 'an assignment'),
+        'forum_topic_created' => 'Started a forum topic',
+        'forum_reply_created' => 'Replied in the student forum',
+        default => 'Student activity',
+      };
+      unset($event['eventType'], $event['assignmentTitle']);
+    }
+    unset($event);
+    respond(200, ['student' => $record, 'submissions' => $submissions->fetchAll(), 'activity' => $recordActivity, 'submissionPage' => $submissionPage, 'activityPage' => $activityPage, 'pageSize' => $detailPageSize]);
+  }
+  $page = max(1, (int) ($_GET['page'] ?? 1));
+  $pageSize = min(100, max(10, (int) ($_GET['pageSize'] ?? 25)));
+  $offset = ($page - 1) * $pageSize;
+  $search = trim((string) ($_GET['search'] ?? ''));
+  $pattern = '%' . $search . '%';
+  $where = "(?='' OR st.full_name LIKE ? OR st.email LIKE ? OR st.matric_number LIKE ? OR st.department LIKE ? OR st.level LIKE ?)";
+  $count = $pdo->prepare("SELECT COUNT(*) FROM students st WHERE {$where}");
+  $count->execute([$search, $pattern, $pattern, $pattern, $pattern, $pattern]);
+  $total = (int) $count->fetchColumn();
+  $rows = $pdo->prepare(
+    "SELECT st.id,st.full_name AS fullName,st.email,st.matric_number AS matricNumber,st.department,st.level,st.is_active AS isActive,(SELECT COUNT(*) FROM student_attendance sa WHERE sa.student_id=st.id) AS attendancePoints,(SELECT COUNT(*) FROM student_submissions ss WHERE ss.student_id=st.id) AS submissionTotal,(SELECT COUNT(*) FROM student_submissions ss WHERE ss.student_id=st.id AND ss.instructor_score IS NOT NULL) AS gradedTotal,(SELECT AVG(ss.instructor_score) FROM student_submissions ss WHERE ss.student_id=st.id AND ss.instructor_score IS NOT NULL) AS averageGrade,(SELECT COUNT(*) FROM student_activity_log l WHERE l.student_id=st.id) AS activityTotal FROM students st WHERE {$where} ORDER BY st.full_name ASC LIMIT {$pageSize} OFFSET {$offset}",
+  );
+  $rows->execute([$search, $pattern, $pattern, $pattern, $pattern, $pattern]);
+  respond(200, ['students' => $rows->fetchAll(), 'total' => $total, 'page' => $page, 'pageSize' => $pageSize]);
+}
 if ($route === 'assignments' && $method === 'DELETE') {
   require_admin();
   require_csrf();
@@ -398,6 +463,7 @@ if ($route === 'student-activity' && $method === 'GET') {
       'profile_completed' => "$name completed their student profile",
       'submission_created' => "$name submitted $assignment",
       'submission_updated' => "$name updated a submission for $assignment",
+      'attendance_awarded' => "$name earned an attendance point for $assignment",
       'pair_review_submitted' => "$name completed a pair review for $assignment",
       'grade_posted' => "A grade was posted for $name on $assignment",
       'forum_topic_created' => "$name started a forum topic",
@@ -418,7 +484,9 @@ if ($route === 'assignments' && $method === 'POST') {
   $id = filter_var($input['id'] ?? null, FILTER_VALIDATE_INT) ?: null;
   $title = trim(strip_tags((string) ($input['title'] ?? '')));
   $question = sanitize_comment_html((string) ($input['question'] ?? ''));
-  $department = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($input['department'] ?? ''))) ?? '');
+  $departmentInput = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($input['department'] ?? ''))) ?? '');
+  $departments = array_values(array_unique(array_filter(array_map('trim', explode(',', $departmentInput)), static fn($value) => $value !== '')));
+  $department = implode(',', $departments);
   $level = trim(preg_replace('/\s+/', ' ', strip_tags((string) ($input['level'] ?? ''))) ?? '');
   if (
     $title === '' ||
@@ -428,7 +496,7 @@ if ($route === 'assignments' && $method === 'POST') {
   ) {
     respond(422, ['error' => 'Add an assignment title and question.']);
   }
-  if (mb_strlen($department) > 120 || mb_strlen($level) > 40) {
+  if (mb_strlen($department) > 120 || mb_strlen($level) > 40 || count(array_filter($departments, static fn($value) => mb_strlen($value) > 120)) > 0) {
     respond(422, ['error' => 'Department or level is too long.']);
   }
   $department = $department === '' ? null : $department;
@@ -468,7 +536,7 @@ if ($route === 'student-submit' && $method === 'POST') {
     respond(422, ['error' => 'Choose an assignment and write your submission.']);
   }
   $a = $pdo->prepare(
-    "SELECT id FROM assignments WHERE id=? AND status='open' AND (due_at IS NULL OR due_at>=NOW()) AND (department IS NULL OR LOWER(department)=LOWER(?)) AND (level IS NULL OR LOWER(level)=LOWER(?))",
+    "SELECT id FROM assignments WHERE id=? AND status='open' AND (due_at IS NULL OR due_at>=NOW()) AND (department IS NULL OR FIND_IN_SET(LOWER(?),LOWER(REPLACE(department, ', ', ',')))>0) AND (level IS NULL OR LOWER(level)=LOWER(?))",
   );
   $a->execute([$assignmentId, (string) ($_SESSION['ore_student_department'] ?? ''), (string) ($_SESSION['ore_student_level'] ?? '')]);
   if (!$a->fetchColumn()) {
@@ -486,6 +554,9 @@ if ($route === 'student-submit' && $method === 'POST') {
   $s = $pdo->prepare('SELECT id FROM student_submissions WHERE assignment_id=? AND student_id=?');
   $s->execute([$assignmentId, $studentId]);
   $submissionId = (int) $s->fetchColumn();
+  $attendance = $pdo->prepare('INSERT IGNORE INTO student_attendance(student_id,submission_id,assignment_id) VALUES(?,?,?)');
+  $attendance->execute([$studentId, $submissionId, $assignmentId]);
+  if ($attendance->rowCount()) log_student_activity($pdo, $studentId, 'attendance_awarded', (int) $assignmentId);
   $pair = $pdo->prepare('SELECT pair_review FROM assignments WHERE id=?');
   $pair->execute([$assignmentId]);
   if ((int) $pair->fetchColumn() === 1) {
@@ -530,7 +601,7 @@ if ($route === 'student-review' && $method === 'POST') {
     respond(422, ['error' => 'Add review feedback and a score from 0 to 100.']);
   }
   $q = $pdo->prepare(
-    'UPDATE pair_reviews pr JOIN student_submissions ss ON ss.id=pr.submission_id JOIN assignments a ON a.id=ss.assignment_id SET pr.score=?,pr.feedback=?,pr.reviewed_at=NOW() WHERE pr.id=? AND pr.reviewer_student_id=? AND a.pair_review=1 AND (a.department IS NULL OR a.department=?) AND (a.level IS NULL OR a.level=?)',
+    "UPDATE pair_reviews pr JOIN student_submissions ss ON ss.id=pr.submission_id JOIN assignments a ON a.id=ss.assignment_id SET pr.score=?,pr.feedback=?,pr.reviewed_at=NOW() WHERE pr.id=? AND pr.reviewer_student_id=? AND a.pair_review=1 AND (a.department IS NULL OR FIND_IN_SET(LOWER(?),LOWER(REPLACE(a.department, ', ', ',')))>0) AND (a.level IS NULL OR a.level=?)",
   );
   $q->execute([$score, $feedback, $reviewId, $studentId, (string) ($_SESSION['ore_student_department'] ?? ''), (string) ($_SESSION['ore_student_level'] ?? '')]);
   if (!$q->rowCount()) {

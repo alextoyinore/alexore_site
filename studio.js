@@ -263,7 +263,7 @@ function renderDashboard() {
       .map(
         (article, index) => `
     <div class="recent-item"><div class="recent-thumb">${['✳', '↗', '▤'][index]}</div>
-    <div><b>${escapeHtml(article.title)}</b><small>${escapeHtml(article.category.toUpperCase())} · ${escapeHtml(article.read.toUpperCase())}</small></div>
+    <div><b>${escapeHtml(article.title)}</b><small>${escapeHtml(article.category.toUpperCase())} · ${escapeHtml(article.read.toUpperCase())} · ${Number(article.viewCount || 0)} views</small></div>
     <span class="status ${article.status === 'Draft' ? 'draft' : ''}">${article.status.toUpperCase()}</span></div>`
       )
       .join('') || '<div class="recent-empty">Your first story is waiting to be written.</div>';
@@ -904,7 +904,7 @@ async function renderAssignmentStudioView(view, panel, options = {}) {
     const assignment = assignments.find((row) => String(row.id) === String(options.assignmentId)) || null;
     const departmentOptions = (result.departments || []).map((value) => `<option value="${escapeHtml(value)}"></option>`).join('');
     const levelOptions = (result.levels || []).map((value) => `<option value="${escapeHtml(value)}"></option>`).join('');
-    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">STUDENT LEARNING SERVICE</div><h2>${assignment ? 'Edit assignment' : 'Create assignment'}</h2></div><button class="plain-link" type="button" id="backToAssignments">← All assignments</button></div><form id="assignmentAdminForm" class="products-form"><input type="hidden" name="id" value="${assignment ? assignment.id : ''}"><label class="field-label">ASSIGNMENT TITLE<input name="title" maxlength="240" required value="${escapeHtml(assignment?.title || '')}"></label><div class="field-row"><label class="field-label">DEPARTMENT TARGET (OPTIONAL)<input name="department" list="assignmentDepartments" maxlength="120" placeholder="All departments" value="${escapeHtml(assignment?.department || '')}"><datalist id="assignmentDepartments">${departmentOptions}</datalist></label><label class="field-label">LEVEL TARGET (OPTIONAL)<input name="level" list="assignmentLevels" maxlength="40" placeholder="All levels" value="${escapeHtml(assignment?.level || '')}"><datalist id="assignmentLevels">${levelOptions}</datalist></label></div><label class="field-label">QUESTION / INSTRUCTIONS</label><div class="student-editor-toolbar" role="toolbar" aria-label="Assignment question formatting">${studioEditorButton('undo','Undo','undo')}${studioEditorButton('redo','Redo','redo')}<i aria-hidden="true"></i>${studioEditorButton('bold','Bold','bold')}${studioEditorButton('italic','Italic','italic')}${studioEditorButton('underline','Underline','underline')}${studioEditorButton('bullets','Bulleted list','insertUnorderedList')}${studioEditorButton('numbers','Numbered list','insertOrderedList')}${studioEditorButton('quote','Quote','formatBlock:blockquote')}${studioEditorButton('code','Code block','code')}${studioEditorButton('link','Insert link','action:link')}${studioEditorButton('table','Insert table','action:table')}</div><div id="assignmentQuestion" class="student-editor-body" contenteditable="true" role="textbox" aria-label="Assignment question" aria-multiline="true">${assignment?.question || '<p><br></p>'}</div><div class="field-row"><label class="field-label">DUE DATE (OPTIONAL)<input name="dueAt" type="datetime-local" value="${assignment?.dueAt ? escapeHtml(assignment.dueAt.slice(0, 16).replace(' ', 'T')) : ''}"></label><label class="field-label">STATUS<select name="status"><option value="open" ${assignment?.status !== 'closed' ? 'selected' : ''}>Open</option><option value="closed" ${assignment?.status === 'closed' ? 'selected' : ''}>Closed</option></select></label></div><label class="field-label"><span><input name="pairReview" type="checkbox" ${Number(assignment?.pairReview) === 1 ? 'checked' : ''}> Enable pair review for this assignment</span></label><div class="settings-actions"><button class="button button-dark" type="submit">${assignment ? 'Save changes' : 'Post assignment'} <span>↗</span></button><button id="resetAssignmentForm" class="button button-outline" type="button">Clear</button></div></form>`;
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">STUDENT LEARNING SERVICE</div><h2>${assignment ? 'Edit assignment' : 'Create assignment'}</h2></div><button class="plain-link" type="button" id="backToAssignments">← All assignments</button></div><form id="assignmentAdminForm" class="products-form"><input type="hidden" name="id" value="${assignment ? assignment.id : ''}"><label class="field-label">ASSIGNMENT TITLE<input name="title" maxlength="240" required value="${escapeHtml(assignment?.title || '')}"></label><div class="field-row"><label class="field-label">DEPARTMENT TARGET (OPTIONAL)<input name="department" list="assignmentDepartments" maxlength="120" placeholder="All departments, or CS, Mathematics" value="${escapeHtml((assignment?.department || '').replaceAll(',', ', '))}"><small>Separate departments with commas. Leave blank to target every department.</small><datalist id="assignmentDepartments">${departmentOptions}</datalist></label><label class="field-label">LEVEL TARGET (OPTIONAL)<input name="level" list="assignmentLevels" maxlength="40" placeholder="All levels" value="${escapeHtml(assignment?.level || '')}"><small>Leave blank to target every level.</small></label></div><label class="field-label">QUESTION / INSTRUCTIONS</label><div class="student-editor-toolbar" role="toolbar" aria-label="Assignment question formatting">${studioEditorButton('undo','Undo','undo')}${studioEditorButton('redo','Redo','redo')}<i aria-hidden="true"></i>${studioEditorButton('bold','Bold','bold')}${studioEditorButton('italic','Italic','italic')}${studioEditorButton('underline','Underline','underline')}${studioEditorButton('bullets','Bulleted list','insertUnorderedList')}${studioEditorButton('numbers','Numbered list','insertOrderedList')}${studioEditorButton('quote','Quote','formatBlock:blockquote')}${studioEditorButton('code','Code block','code')}${studioEditorButton('link','Insert link','action:link')}${studioEditorButton('table','Insert table','action:table')}</div><div id="assignmentQuestion" class="student-editor-body" contenteditable="true" role="textbox" aria-label="Assignment question" aria-multiline="true">${assignment?.question || '<p><br></p>'}</div><div class="field-row"><label class="field-label">DUE DATE (OPTIONAL)<input name="dueAt" type="datetime-local" value="${assignment?.dueAt ? escapeHtml(assignment.dueAt.slice(0, 16).replace(' ', 'T')) : ''}"></label><label class="field-label">STATUS<select name="status"><option value="open" ${assignment?.status !== 'closed' ? 'selected' : ''}>Open</option><option value="closed" ${assignment?.status === 'closed' ? 'selected' : ''}>Closed</option></select></label></div><label class="field-label"><span><input name="pairReview" type="checkbox" ${Number(assignment?.pairReview) === 1 ? 'checked' : ''}> Enable pair review for this assignment</span></label><div class="settings-actions"><button class="button button-dark" type="submit">${assignment ? 'Save changes' : 'Post assignment'} <span>↗</span></button><button id="resetAssignmentForm" class="button button-outline" type="button">Clear</button></div></form>`;
     const form = $('#assignmentAdminForm');
     $('#backToAssignments').onclick = () => setView('assignments');
     $('#resetAssignmentForm').onclick = () => assignment ? setView('assignment-create', { assignmentId: assignment.id }) : (form.reset(), ($('#assignmentQuestion').innerHTML = '<p><br></p>'));
@@ -954,6 +954,85 @@ async function renderAssignmentStudioView(view, panel, options = {}) {
   }
 
   renderAssignmentSubmissions(panel, assignments, String(options.assignmentId || assignments[0]?.id || ''));
+}
+
+async function renderStudentRecords(panel, studentId = '', submissionPage = 1, activityPage = 1) {
+  if (studentId) {
+    const data = await api('student-records', { query: { studentId, submissionPage, activityPage } });
+    const student = data.student;
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">STUDENT LEARNING SERVICE</div><h2>${escapeHtml(student.fullName)}’s record</h2></div><button class="plain-link" type="button" id="backToStudentRecords">← All students</button></div><p>${escapeHtml(student.email)} · ${escapeHtml(student.matricNumber || 'No matric number')} · ${escapeHtml(student.department || 'No department')} · ${escapeHtml(student.level || 'No level')}</p><div class="student-record-stats"><div><b>${Number(student.attendancePoints || 0)}</b><span>attendance points</span></div><div><b>${Number(student.submissionTotal || 0)}</b><span>submissions</span></div><div><b>${Number(student.gradedTotal || 0)}</b><span>graded</span></div><div><b>${student.averageGrade === null ? '—' : Number(student.averageGrade).toFixed(1)}</b><span>average grade</span></div><div><b>${Number(student.activityTotal || 0)}</b><span>activities</span></div></div><div class="student-record-columns"><section><h3>Attendance and grades</h3><div id="studentRecordSubmissions"></div><nav id="studentRecordSubmissionsPager" class="assignment-submission-pager" aria-label="Student submission records"></nav></section><section><h3>Activity history <small>${Number(student.activityTotal || 0)} total activities</small></h3><div id="studentRecordActivity"></div><nav id="studentRecordActivityPager" class="assignment-submission-pager" aria-label="Student activity pages"></nav></section></div>`;
+    $('#backToStudentRecords').onclick = () => renderStudentRecords(panel);
+    const submissionsRoot = $('#studentRecordSubmissions');
+    if (data.submissions.length) submissionsRoot.innerHTML = data.submissions.map((item) => `<article class="student-record-item"><b>${escapeHtml(item.assignmentTitle)}</b><small>${escapeHtml(item.submittedAt)} · Attendance +1</small><strong>${item.score === null ? 'Not graded' : `${Number(item.score).toFixed(1)} / 100`}</strong>${item.feedback ? `<p>${escapeHtml(item.feedback)}</p>` : ''}</article>`).join('');
+    else submissionsRoot.innerHTML = '<div class="empty-state">No submissions or attendance points yet.</div>';
+    const renderRecordPager = (root, current, total, kind) => {
+      const pages = Math.ceil(total / data.pageSize);
+      root.innerHTML = pages > 1 ? `<button type="button" data-record-detail-page="${current - 1}" data-kind="${kind}" ${current <= 1 ? 'disabled' : ''}>← Previous</button><span>Page ${current} of ${pages}</span><button type="button" data-record-detail-page="${current + 1}" data-kind="${kind}" ${current >= pages ? 'disabled' : ''}>Next →</button>` : '';
+      root.onclick = (event) => { const button = event.target.closest('[data-record-detail-page]'); if (!button || button.disabled) return; const next = Number(button.dataset.recordDetailPage); renderStudentRecords(panel, studentId, kind === 'submissions' ? next : submissionPage, kind === 'activity' ? next : activityPage); };
+    };
+    renderRecordPager($('#studentRecordSubmissionsPager'), submissionPage, Number(student.submissionTotal), 'submissions');
+    const activityRoot = $('#studentRecordActivity');
+    if (data.activity.length) {
+      activityRoot.innerHTML = data.activity.map((item) => `<article class="student-record-item"><b>${escapeHtml(item.description)}</b><small>${escapeHtml(item.createdAt)}</small></article>`).join('');
+    } else activityRoot.innerHTML = '<div class="empty-state">No student activity yet.</div>';
+    renderRecordPager($('#studentRecordActivityPager'), activityPage, Number(student.activityTotal), 'activity');
+    return;
+  }
+  panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">STUDENT LEARNING SERVICE</div><h2>Student records</h2></div><button class="plain-link" id="refreshStudentRecords" type="button">Refresh ↻</button></div><p>Attendance points, submissions, grades, account totals, and activity for every student.</p><form id="studentRecordsSearch" class="assignment-submission-filters"><label class="field-label">FIND A STUDENT<input name="search" type="search" placeholder="Name, email, matric, department, or level"></label><button class="button button-dark" type="submit">Search</button></form><p id="studentRecordsCount" class="student-notice"></p><div id="studentRecordsList" class="student-record-list"></div><nav id="studentRecordsPager" class="assignment-submission-pager" aria-label="Student record pages"></nav>`;
+  const searchForm = $('#studentRecordsSearch');
+  const list = $('#studentRecordsList');
+  const pager = $('#studentRecordsPager');
+  let page = 1;
+  const load = async () => {
+    const data = await api('student-records', { query: { page, pageSize: 25, search: searchForm.elements.search.value.trim() } });
+    $('#studentRecordsCount').textContent = `Showing ${data.total ? (page - 1) * 25 + 1 : 0}–${Math.min(page * 25, data.total)} of ${data.total} students`;
+    list.innerHTML = data.students.length ? data.students.map((item) => `<article class="student-record-card"><div><b>${escapeHtml(item.fullName)}</b><small>${escapeHtml(item.email)} · ${escapeHtml(item.matricNumber || 'No matric number')}</small><small>${escapeHtml(item.department || 'No department')} · ${escapeHtml(item.level || 'No level')}</small></div><div class="student-record-card-stats"><span><b>${Number(item.attendancePoints)}</b> attendance</span><span><b>${Number(item.submissionTotal)}</b> submissions</span><span><b>${Number(item.gradedTotal)}</b> graded</span><span><b>${item.averageGrade === null ? '—' : Number(item.averageGrade).toFixed(1)}</b> average</span><span><b>${Number(item.activityTotal)}</b> activities</span></div><button class="plain-link student-record-open" data-student="${item.id}" type="button">View full record →</button></article>`).join('') : '<div class="empty-state">No students match this search.</div>';
+    const pages = Math.ceil(data.total / 25);
+    pager.innerHTML = pages > 1 ? `<button type="button" data-record-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>← Previous</button><span>Page ${page} of ${pages}</span><button type="button" data-record-page="${page + 1}" ${page >= pages ? 'disabled' : ''}>Next →</button>` : '';
+  };
+  searchForm.onsubmit = async (event) => { event.preventDefault(); page = 1; await load(); };
+  $('#refreshStudentRecords').onclick = load;
+  pager.onclick = async (event) => { const button = event.target.closest('[data-record-page]'); if (!button || button.disabled) return; page = Number(button.dataset.recordPage); await load(); };
+  list.onclick = (event) => { const button = event.target.closest('.student-record-open'); if (button) renderStudentRecords(panel, button.dataset.student); };
+  await load();
+}
+
+async function renderUserManagement(panel) {
+  panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">ACCOUNT ADMINISTRATION</div><h2>User management</h2></div><button class="plain-link" id="refreshSiteMembers" type="button">Refresh ↻</button></div><p>Manage public Alexore member accounts. Studio administrator accounts use a separate login and are not listed here. Deactivated members cannot sign in, comment, or like articles.</p><form id="siteMembersSearch" class="assignment-submission-filters"><label class="field-label">FIND A MEMBER<input name="search" type="search" placeholder="Name or email address"></label><button class="button button-dark" type="submit">Search</button></form><p id="siteMembersCount" class="student-notice"></p><div id="siteMembersList" class="site-member-list"></div><nav id="siteMembersPager" class="assignment-submission-pager" aria-label="Member account pages"></nav>`;
+  const form = $('#siteMembersSearch');
+  const list = $('#siteMembersList');
+  const pager = $('#siteMembersPager');
+  let page = 1;
+  const load = async () => {
+    try {
+      const data = await api('site-members', { query: { page, pageSize: 25, search: form.elements.search.value.trim() } });
+      $('#siteMembersCount').textContent = `Showing ${data.total ? (page - 1) * 25 + 1 : 0}–${Math.min(page * 25, data.total)} of ${data.total} member accounts`;
+      list.innerHTML = data.members.length ? data.members.map((member) => `<article class="site-member-card"><div class="site-member-identity"><b>${escapeHtml(member.fullName)}</b><span>${escapeHtml(member.email)}</span><small>Created ${escapeHtml(member.createdAt)} · Last sign-in ${escapeHtml(member.lastLoginAt || 'Never')}${Number(member.hasReoAccount) ? ' · Reo student' : ''}</small></div><span class="site-member-status ${Number(member.isActive) ? 'is-active' : ''}">${Number(member.isActive) ? 'ACTIVE' : 'DEACTIVATED'}</span><button class="plain-link site-member-toggle" type="button" data-member="${member.id}" data-active="${Number(member.isActive) ? '0' : '1'}">${Number(member.isActive) ? 'Deactivate account' : 'Reactivate account'}</button></article>`).join('') : '<div class="empty-state">No member accounts match this search.</div>';
+      const pages = Math.ceil(data.total / 25);
+      pager.innerHTML = pages > 1 ? `<button type="button" data-member-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>← Previous</button><span>Page ${page} of ${pages}</span><button type="button" data-member-page="${page + 1}" ${page >= pages ? 'disabled' : ''}>Next →</button>` : '';
+    } catch (error) {
+      $('#siteMembersCount').textContent = '';
+      list.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+      pager.innerHTML = '';
+    }
+  };
+  form.onsubmit = async (event) => { event.preventDefault(); page = 1; await load(); };
+  $('#refreshSiteMembers').onclick = load;
+  pager.onclick = async (event) => { const button = event.target.closest('[data-member-page]'); if (!button || button.disabled) return; page = Number(button.dataset.memberPage); await load(); };
+  list.onclick = async (event) => {
+    const button = event.target.closest('.site-member-toggle');
+    if (!button) return;
+    button.disabled = true;
+    try {
+      await api('site-members', { method: 'POST', data: { id: button.dataset.member, active: button.dataset.active === '1' } });
+      toast(button.dataset.active === '1' ? 'Member account reactivated.' : 'Member account deactivated.');
+      await load();
+    } catch (error) {
+      button.disabled = false;
+      toast(error.message);
+    }
+  };
+  await load();
 }
 
 async function renderAssignmentSubmissions(panel, assignments, initialAssignmentId) {
@@ -1035,6 +1114,14 @@ async function setView(view, options = {}) {
       'Student activity.',
       'A readable timeline of important actions in the student service.',
     ],
+    'student-records': [
+      'Student records.',
+      'Attendance, submissions, grades, totals, and student activity.',
+    ],
+    'user-management': [
+      'User management.',
+      'Manage member access to comments, likes, and Alexore accounts.',
+    ],
     audience: ['Your community.', 'A growing circle of curious, thoughtful people.'],
     comments: ['Reader comments.', 'Review comments before they appear beneath your writing.'],
     messages: ['Contact messages.', 'Read and reply to messages sent through your contact form.'],
@@ -1071,7 +1158,7 @@ async function setView(view, options = {}) {
     writingPager.setItems(
       articles,
       (article) =>
-        `<div class="detail-row"><span>${escapeHtml(article.title)} <small> · ${escapeHtml(article.category)}</small></span><span><small>${article.status.toUpperCase()} · ${escapeHtml(article.date)}</small> <button class="plain-link edit-article" data-id="${article.id}">Edit</button></span></div>`
+        `<div class="detail-row"><span>${escapeHtml(article.title)} <small> · ${escapeHtml(article.category)}</small></span><span><small>${article.status.toUpperCase()} · ${escapeHtml(article.date)} · ${Number(article.viewCount || 0)} views</small> <button class="plain-link edit-article" data-id="${article.id}">Edit</button></span></div>`
     );
     $('#viewNew').onclick = () => setView('writing-create');
     $('#exportArticles').onclick = () => {
@@ -1084,6 +1171,10 @@ async function setView(view, options = {}) {
     };
   } else if (['assignments', 'assignment-create', 'assignment-submissions'].includes(view)) {
     await renderAssignmentStudioView(view, panel, options);
+  } else if (view === 'student-records') {
+    await renderStudentRecords(panel, options.studentId || '');
+  } else if (view === 'user-management') {
+    await renderUserManagement(panel);
   } else if (view === 'student-activity') {
     const result = await api('student-activity');
     const activity = result.activity || [];

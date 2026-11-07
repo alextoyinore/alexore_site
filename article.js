@@ -377,6 +377,17 @@ function renderArticle(item) {
         'Notes on work, money, becoming, and conversations that matter. Christ-like.'
     );
   root.innerHTML = `<article class="article-wrap"><a class="article-back" href="writing.html">← Back to the notebook</a>${item.sample ? '<p class="article-sample-note">SAMPLE ARTICLE · PREVIEW CONTENT</p>' : ''}<div class="article-meta article-meta-top"><a href="browse.html?category=${encodeURIComponent(item.category)}">${escapeHtml(item.category).toUpperCase()}</a> · ${escapeHtml(readingTime).toUpperCase()} · ${escapeHtml(item.date)}</div><div class="article-hero ${sampleCover ? 'has-sample-art' : ''}">${sampleCover}</div><div class="article-meta">ALEXORE · ${escapeHtml(item.date).toUpperCase()}</div><h1>${escapeHtml(item.title)}</h1><p class="article-deck">${escapeHtml(item.deck)}</p>${tags.length ? `<div class="article-tags" aria-label="Article tags">${tags.map((tag) => `<a href="browse.html?tag=${encodeURIComponent(tag)}">${escapeHtml(tag)}</a>`).join('')}</div>` : ''}<div class="article-body">${cleanArticleHtml(item.body || '<p>This story is just getting started.</p>')}</div><section class="article-engagement" aria-label="Article reactions and comments"><div class="article-like-row"><div><div class="eyebrow">A NOTE BACK</div><p>If this stayed with you, leave a little appreciation.</p></div><button class="article-like-button" id="articleLikeButton" type="button" aria-pressed="false"><span aria-hidden="true">♡</span><span id="articleLikeCount">${Number(item.likeCount) || 0} likes</span></button></div><div class="comments-section"><div class="comments-heading"><div><h2>Join the conversation</h2><p>No account needed. Comments are reviewed before they appear.</p></div><span class="eyebrow" id="articleCommentCount">${Number(item.commentCount) || 0} COMMENTS</span></div><div class="comment-list" id="articleCommentList" aria-live="polite"><p class="comment-empty">Loading comments…</p></div><form class="comment-form" id="articleCommentForm"><h3>Leave a comment</h3><p>Share a thoughtful response.</p><label class="comment-check"><input type="checkbox" name="anonymous"> <span>Comment anonymously</span></label><div id="commentIdentity"><p class="comment-privacy-notice">For a non-anonymous comment, we collect your name and email to review and manage your comment and prevent abuse. We rely on our legitimate interests for this; your name may appear with an approved comment, but your email stays private and is not used for the newsletter. <a href="privacy.html">Read the Privacy Policy</a>. Choose anonymous commenting to leave out your name and email.</p><label>Your name<input name="name" autocomplete="name" maxlength="120" required></label><label>Email address<input name="email" type="email" autocomplete="email" maxlength="254" required></label><label class="comment-check"><input type="checkbox" name="newsletter"> <span>Separately, add me to the occasional email newsletter.</span></label></div><label>Your comment<textarea name="comment" maxlength="3000" required></textarea></label><small>Up to 3,000 characters. No links or HTML are needed.</small><button class="button button-dark" type="submit">Post comment <span>↗</span></button><p class="comment-message" id="commentMessage" role="status"></p></form></div></section><div class="article-bottom"><a href="writing.html">← More writing</a><a href="index.html#newsletter">Get the notes ↗</a></div></article>`;
+  root.querySelector('#commentIdentity')?.remove();
+  root.querySelector('.comment-check')?.remove();
+  root.querySelector('.comments-heading p').textContent = 'Sign in to comment. Your account name and email are attached automatically; only your name appears with an approved comment.';
+  root.querySelector('#articleCommentForm > p').textContent = 'Write your response.';
+  root.querySelector('#articleLikeButton').setAttribute('aria-label', 'Like this article');
+  const memberPrompt = document.createElement('p');
+  memberPrompt.className = 'article-member-prompt';
+  memberPrompt.id = 'articleMemberPrompt';
+  const returnTo = encodeURIComponent(location.pathname + location.search);
+  memberPrompt.innerHTML = `Please <a href="account.html?mode=login&amp;returnTo=${returnTo}">log in</a> or <a href="account.html?mode=register&amp;returnTo=${returnTo}">create an account</a> to like or comment.`;
+  root.querySelector('.comments-heading').after(memberPrompt);
   installCommentEditor();
   const likeMark = root.querySelector('#articleLikeButton [aria-hidden="true"]');
   likeMark.outerHTML =
@@ -392,6 +403,7 @@ function renderArticle(item) {
   }
   if (!item.sample) setupArticleEngagement(item);
   else {
+    root.querySelector('#articleMemberPrompt').hidden = true;
     root.querySelector('#articleLikeButton').disabled = true;
     root.querySelector('#articleCommentList').innerHTML =
       '<p class="comment-empty">This is a sample article. Publish it from Studio to enable reader comments and likes.</p>';
@@ -409,22 +421,6 @@ function renderArticle(item) {
   }
 }
 
-function getVisitorId() {
-  const key = 'alexore-reader-id';
-  try {
-    let id = localStorage.getItem(key);
-    if (!id) {
-      id =
-        globalThis.crypto?.randomUUID?.() ||
-        Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-      localStorage.setItem(key, id);
-    }
-    return id;
-  } catch {
-    return Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-  }
-}
-
 async function setupArticleEngagement(item) {
   // Load the visitor's like state and public comments, then wire like/comment submissions.
   const likeButton = root.querySelector('#articleLikeButton');
@@ -432,13 +428,18 @@ async function setupArticleEngagement(item) {
   const commentList = root.querySelector('#articleCommentList');
   const commentsCount = root.querySelector('#articleCommentCount');
   const form = root.querySelector('#articleCommentForm');
-  const anonymousToggle = form.elements.anonymous;
-  const identity = root.querySelector('#commentIdentity');
   const message = root.querySelector('#commentMessage');
   const editor = root.querySelector('#commentEditor');
   const commentInput = form.elements.comment;
   const editorCount = root.querySelector('#commentEditorCount');
-  const visitorId = getVisitorId();
+  const memberPrompt = root.querySelector('#articleMemberPrompt');
+  const memberAuth = await (window.alexoreMemberAuthPromise || fetch('api/index.php?route=member-auth', { credentials: 'same-origin' }).then((response) => response.json()));
+  const authenticated = Boolean(memberAuth.authenticated && memberAuth.csrf);
+  memberPrompt.hidden = authenticated;
+  form.querySelectorAll('input, textarea, button, [contenteditable="true"]').forEach((control) => {
+    control.disabled = !authenticated;
+    if (control.hasAttribute('contenteditable')) control.setAttribute('contenteditable', String(authenticated));
+  });
   const syncEditor = () => {
     commentInput.value = cleanCommentHtml(editor.innerHTML);
     editorCount.textContent = `${editor.innerText.trim().length} / 3,000`;
@@ -449,19 +450,21 @@ async function setupArticleEngagement(item) {
     likeCount.textContent = `${count} ${count === 1 ? 'like' : 'likes'}`;
   };
   likeButton.disabled = true;
-  fetch(
-    `api/index.php?route=like&slug=${encodeURIComponent(item.slug)}&visitorId=${encodeURIComponent(visitorId)}`,
-    { headers: { Accept: 'application/json' } }
-  )
-    .then(async (response) => {
+  likeCount.textContent = `${Number(item.likeCount) || 0} likes · log in to like`;
+  if (authenticated) {
+    try {
+      const response = await fetch(
+        `api/index.php?route=like&slug=${encodeURIComponent(item.slug)}`,
+        { headers: { Accept: 'application/json' }, credentials: 'same-origin' }
+      );
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || '');
+      if (!response.ok) throw new Error(result.error || 'Likes could not be loaded.');
       setLike(result.liked, result.count);
-    })
-    .catch(() => {})
-    .finally(() => {
-      likeButton.disabled = false;
-    });
+    } catch {
+      likeCount.textContent = `${Number(item.likeCount) || 0} likes`;
+    }
+    likeButton.disabled = false;
+  }
   const loadComments = async () => {
     const response = await fetch(
       `api/index.php?route=comments&slug=${encodeURIComponent(item.slug)}`,
@@ -487,12 +490,14 @@ async function setupArticleEngagement(item) {
       '<p class="comment-empty">Comments are temporarily unavailable. Please try again later.</p>';
   }
   likeButton.addEventListener('click', async () => {
+    if (!authenticated) return;
     likeButton.disabled = true;
     try {
       const response = await fetch('api/index.php?route=like', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ slug: item.slug, visitorId }),
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': memberAuth.csrf },
+        credentials: 'same-origin',
+        body: JSON.stringify({ slug: item.slug }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Your reaction could not be saved.');
@@ -503,12 +508,6 @@ async function setupArticleEngagement(item) {
     } finally {
       likeButton.disabled = false;
     }
-  });
-  anonymousToggle.addEventListener('change', () => {
-    identity.hidden = anonymousToggle.checked;
-    form.elements.name.required = !anonymousToggle.checked;
-    form.elements.email.required = !anonymousToggle.checked;
-    if (anonymousToggle.checked) form.elements.newsletter.checked = false;
   });
   editor.addEventListener('input', syncEditor);
   editor.addEventListener('paste', (event) => {
@@ -594,6 +593,7 @@ async function setupArticleEngagement(item) {
   });
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (!authenticated) return;
     message.textContent = '';
     message.classList.remove('comment-error');
     syncEditor();
@@ -609,22 +609,14 @@ async function setupArticleEngagement(item) {
       editor.focus();
       return;
     }
-    const data = {
-      slug: item.slug,
-      comment: commentInput.value,
-      anonymous: anonymousToggle.checked,
-    };
-    if (!anonymousToggle.checked) {
-      data.name = form.elements.name.value.trim();
-      data.email = form.elements.email.value.trim();
-      data.newsletter = form.elements.newsletter.checked;
-    }
+    const data = { slug: item.slug, comment: commentInput.value };
     const submit = form.querySelector('button[type="submit"]');
     submit.disabled = true;
     try {
       const response = await fetch('api/index.php?route=comments', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': memberAuth.csrf },
+        credentials: 'same-origin',
         body: JSON.stringify(data),
       });
       const result = await response.json();
@@ -632,9 +624,6 @@ async function setupArticleEngagement(item) {
       form.reset();
       editor.innerHTML = '';
       syncEditor();
-      identity.hidden = false;
-      form.elements.name.required = true;
-      form.elements.email.required = true;
       message.textContent = result.message;
     } catch (error) {
       message.textContent = error.message;

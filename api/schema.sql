@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS articles (
   cover_image VARCHAR(2048) NOT NULL DEFAULT '',
   seo_description VARCHAR(160) NOT NULL DEFAULT '',
   body MEDIUMTEXT NOT NULL,
+  view_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
   status ENUM('draft','published') NOT NULL DEFAULT 'draft',
   published_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -30,6 +31,19 @@ PREPARE alexore_schema_statement FROM @alexore_schema_sql;
 EXECUTE alexore_schema_statement;
 DEALLOCATE PREPARE alexore_schema_statement;
 UPDATE articles SET tags = '' WHERE tags IS NULL;
+
+SET @alexore_schema_has_article_views = (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'articles' AND COLUMN_NAME = 'view_count'
+);
+SET @alexore_schema_views_sql = IF(
+  @alexore_schema_has_article_views = 0,
+  'ALTER TABLE articles ADD COLUMN view_count BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER body',
+  'SELECT 1'
+);
+PREPARE alexore_schema_views_statement FROM @alexore_schema_views_sql;
+EXECUTE alexore_schema_views_statement;
+DEALLOCATE PREPARE alexore_schema_views_statement;
 
 CREATE TABLE IF NOT EXISTS content_items (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -107,6 +121,17 @@ CREATE TABLE IF NOT EXISTS users (
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_login_at DATETIME NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS site_members (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  email VARCHAR(254) NOT NULL UNIQUE,
+  full_name VARCHAR(120) NOT NULL,
+  password_hash VARCHAR(255) NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_login_at DATETIME NULL,
+  INDEX idx_site_members_name (full_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Add the admin display name on older databases without replacing usernames
@@ -208,6 +233,23 @@ CREATE TABLE IF NOT EXISTS student_submissions (
   CONSTRAINT fk_student_submissions_assignment FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
   CONSTRAINT fk_student_submissions_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- One attendance point is awarded for each assignment submitted, including existing submissions.
+CREATE TABLE IF NOT EXISTS student_attendance (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  student_id BIGINT UNSIGNED NOT NULL,
+  submission_id BIGINT UNSIGNED NOT NULL,
+  assignment_id BIGINT UNSIGNED NOT NULL,
+  awarded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_attendance_submission (submission_id),
+  INDEX idx_attendance_student (student_id, awarded_at),
+  CONSTRAINT fk_student_attendance_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  CONSTRAINT fk_student_attendance_submission FOREIGN KEY (submission_id) REFERENCES student_submissions(id) ON DELETE CASCADE,
+  CONSTRAINT fk_student_attendance_assignment FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO student_attendance(student_id,submission_id,assignment_id,awarded_at)
+SELECT student_id,id,assignment_id,submitted_at FROM student_submissions;
 
 CREATE TABLE IF NOT EXISTS pair_reviews (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

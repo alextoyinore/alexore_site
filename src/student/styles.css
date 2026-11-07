@@ -196,6 +196,44 @@
 .student-side-panel .student-panel {
   padding: 22px;
 }
+.student-attendance-panel > strong {
+  display: block;
+  margin-top: 8px;
+  color: #347b69;
+  font: 500 42px var(--serif);
+}
+.student-attendance-panel > p {
+  margin: 0 0 8px;
+  color: #354743;
+}
+.student-attendance-panel > small {
+  color: #899592;
+  line-height: 1.6;
+}
+.student-attendance-history {
+  display: grid;
+  gap: 9px;
+  margin-top: 16px;
+}
+.student-attendance-history > div:not(.eyebrow) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 8px;
+  align-items: center;
+  font-size: 11px;
+}
+.student-attendance-history > div > span {
+  grid-row: span 2;
+  color: #347b69;
+  font: 10px var(--mono);
+}
+.student-attendance-history b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.student-attendance-history small {
+  color: #899592;
+}
 .student-panel h2 {
   font: 500 20px var(--serif);
   margin: 7px 0 11px;
@@ -500,6 +538,125 @@
   margin: 0 0 6px;
   font: 500 18px var(--serif);
 }
+.student-record-stats,
+.student-record-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 16px 0;
+}
+.student-record-stats > div {
+  display: grid;
+  gap: 4px;
+  min-width: 110px;
+  padding: 14px;
+  border: 1px solid #e5ebe8;
+  border-radius: 8px;
+  background: #fff;
+}
+.student-record-stats b {
+  color: #347b69;
+  font: 500 22px var(--serif);
+}
+.student-record-stats span,
+.student-record-card-stats span {
+  color: #778482;
+  font-size: 10px;
+}
+.student-record-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+.student-record-columns h3 {
+  font: 500 18px var(--serif);
+}
+.student-record-columns h3 small {
+  display: block;
+  margin-top: 5px;
+  color: #899592;
+  font: 10px var(--mono);
+}
+.student-record-list {
+  display: grid;
+  gap: 10px;
+}
+.student-record-card {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.3fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e5ebe8;
+  border-radius: 8px;
+  background: #fff;
+}
+.student-record-card > div:first-child,
+.student-record-item {
+  display: grid;
+  gap: 5px;
+}
+.student-record-card > div:first-child small,
+.student-record-item small {
+  color: #899592;
+  font-size: 10px;
+}
+.student-record-card-stats {
+  gap: 7px 12px;
+  margin: 0;
+}
+.student-record-card-stats b {
+  color: #344744;
+}
+.student-record-open {
+  white-space: nowrap;
+}
+.student-record-item {
+  padding: 11px 0;
+  border-bottom: 1px solid #e5ebe8;
+}
+.student-record-item > strong {
+  color: #347b69;
+  font-size: 11px;
+}
+.student-record-item p {
+  margin: 0;
+  color: #778482;
+  font-size: 11px;
+}
+.site-member-list {
+  display: grid;
+  gap: 10px;
+}
+.site-member-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #e5ebe8;
+  border-radius: 8px;
+  background: #fff;
+}
+.site-member-identity {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.site-member-identity span,
+.site-member-identity small {
+  overflow-wrap: anywhere;
+  color: #778482;
+  font-size: 10px;
+}
+.site-member-status {
+  color: #a3453f;
+  font: 10px var(--mono);
+}
+.site-member-status.is-active {
+  color: #347b69;
+}
 .studio-assignment-card p {
   margin: 0;
   color: #778482;
@@ -521,9 +678,7 @@
   align-items: end;
   gap: 12px;
   margin: 18px 0;
-  padding: 16px;
-  border: 1px solid #e5ebe8;
-  border-radius: 9px;
+  padding: 16px 0;
   background: #fff;
 }
 .assignment-submission-filters .field-label {
@@ -608,6 +763,18 @@
     grid-template-columns: 1fr;
   }
   .student-layout {
+    grid-template-columns: 1fr;
+  }
+  .student-record-card {
+    grid-template-columns: 1fr;
+  }
+  .site-member-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .site-member-identity {
+    grid-column: 1 / -1;
+  }
+  .student-record-columns {
     grid-template-columns: 1fr;
   }
   .student-side-panel {

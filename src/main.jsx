@@ -6,6 +6,7 @@ import chrome from './pages/chrome.html?raw';
 import home from './pages/index.html?raw';
 import writing from './pages/writing.html?raw';
 import about from './pages/about.html?raw';
+import account from './pages/account.html?raw';
 import article from './pages/article.html?raw';
 import book from './pages/book.html?raw';
 import browse from './pages/browse.html?raw';
@@ -26,6 +27,7 @@ const pages = {
   'index.html': home,
   'writing.html': writing,
   'about.html': about,
+  'account.html': account,
   'article.html': article,
   'book.html': book,
   'browse.html': browse,
@@ -44,6 +46,7 @@ const pages = {
 };
 const legacyModules = import.meta.glob([
   '../app.js',
+  '../account.js',
   '../article.js',
   '../browse.js',
   '../catalog.js',
@@ -52,6 +55,7 @@ const legacyModules = import.meta.glob([
   '../content.js',
   '../detail.js',
   '../header-search.js',
+  '../member-auth.js',
   '../search.js',
   '../studio.js',
   '../writing-list.js',
@@ -76,6 +80,7 @@ const pageScripts = {
   'index.html': ['app.js', 'header-search.js'],
   'writing.html': ['content.js', 'writing-list.js', 'detail.js', 'header-search.js'],
   'about.html': ['detail.js', 'header-search.js'],
+  'account.html': ['account.js'],
   'article.html': ['content.js', 'detail.js', 'article.js', 'header-search.js'],
   'book.html': ['detail.js', 'header-search.js'],
   'browse.html': ['browse.js', 'detail.js', 'header-search.js'],
@@ -170,6 +175,8 @@ function ReactSite() {
         await import('./student/app.js');
         return;
       }
+      const memberAuthModule = legacyModules['../member-auth.js'];
+      if (memberAuthModule) await memberAuthModule();
       for (const name of scriptNames) {
         const path = `../${name}`;
         const loadModule = legacyModules[path];

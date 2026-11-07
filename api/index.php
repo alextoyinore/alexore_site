@@ -26,11 +26,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 }
 
 $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+$sessionHost = strtolower((string) parse_url('http://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
+$sessionDomain = preg_match('/(^|\.)alexore\.com\.ng$/', $sessionHost) ? '.alexore.com.ng' : '';
 session_set_cookie_params([
   'httponly' => true,
   'secure' => $secure,
   'samesite' => 'Lax',
   'path' => '/',
+  'domain' => $sessionDomain,
 ]);
 session_start();
 
@@ -175,6 +178,29 @@ function require_csrf(): void
   }
 }
 
+function require_member(): array
+{
+  global $pdo;
+  $memberId = filter_var($_SESSION['alexore_member_id'] ?? null, FILTER_VALIDATE_INT);
+  if (!$memberId) respond(401, ['error' => 'Sign in to continue.']);
+  $query = $pdo->prepare('SELECT id,email,full_name AS fullName FROM site_members WHERE id=? AND is_active=1 LIMIT 1');
+  $query->execute([(int) $memberId]);
+  $member = $query->fetch();
+  if (!$member) {
+    unset($_SESSION['alexore_member_id'], $_SESSION['alexore_member_source']);
+    respond(401, ['error' => 'Sign in to continue.']);
+  }
+  return $member;
+}
+
+function require_member_csrf(): void
+{
+  $sent = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+  if (!is_string($sent) || empty($_SESSION['alexore_member_csrf']) || !hash_equals($_SESSION['alexore_member_csrf'], $sent)) {
+    respond(403, ['error' => 'Session token expired. Refresh and try again.']);
+  }
+}
+
 $configPath = getenv('ALEXORE_CONFIG_PATH') ?: dirname(__DIR__, 2) . '/alexore-config.php';
 if (is_file($configPath)) {
   $config = require $configPath;
@@ -245,7 +271,8 @@ $contentSchemaReady = $tableExists($pdo, 'content_items');
 $engagementSchemaReady =
   $tableExists($pdo, 'article_likes') && $tableExists($pdo, 'article_comments');
 $contactSchemaReady = $tableExists($pdo, 'contact_messages');
-if (!$contentSchemaReady || !$engagementSchemaReady || !$contactSchemaReady) {
+$memberSchemaReady = $tableExists($pdo, 'site_members');
+if (!$contentSchemaReady || !$engagementSchemaReady || !$contactSchemaReady || !$memberSchemaReady) {
   error_log('alexore database tables are missing; import api/schema.sql.');
 }
 
@@ -429,6 +456,139 @@ if ($route === 'auth' && $method === 'POST') {
   respond(401, ['error' => 'That username or password did not match.']);
 }
 
+if ($route === 'member-auth' && $method === 'GET') {
+  if (!$memberSchemaReady) respond(503, ['error' => 'Accounts are temporarily unavailable. Please import api/schema.sql.']);
+  if (empty($_SESSION['alexore_member_id']) && empty($_SESSION['alexore_sso_suppressed']) && !empty($_SESSION['ore_student_id'])) {
+    $studentQuery = $pdo->prepare('SELECT full_name,email FROM students WHERE id=? AND is_active=1 LIMIT 1');
+    $studentQuery->execute([(int) $_SESSION['ore_student_id']]);
+    $student = $studentQuery->fetch();
+    if ($student) {
+      $memberQuery = $pdo->prepare('SELECT id,is_active FROM site_members WHERE email=? LIMIT 1');
+      $memberQuery->execute([strtolower((string) $student['email'])]);
+      $member = $memberQuery->fetch();
+      if (!$member) {
+        $pdo->prepare('INSERT IGNORE INTO site_members(email,full_name) VALUES(?,?)')->execute([strtolower((string) $student['email']), $student['full_name']]);
+        $memberQuery->execute([strtolower((string) $student['email'])]);
+        $member = $memberQuery->fetch();
+      }
+      if ($member && (int) $member['is_active'] === 1) {
+        session_regenerate_id(true);
+        $_SESSION['alexore_member_id'] = (int) $member['id'];
+        $_SESSION['alexore_member_source'] = 'reo';
+        $_SESSION['alexore_sso_suppressed'] = false;
+        $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
+      }
+    }
+  }
+  $member = null;
+  if (!empty($_SESSION['alexore_member_id'])) {
+    $memberQuery = $pdo->prepare('SELECT id,email,full_name AS fullName FROM site_members WHERE id=? AND is_active=1 LIMIT 1');
+    $memberQuery->execute([(int) $_SESSION['alexore_member_id']]);
+    $member = $memberQuery->fetch() ?: null;
+    if (!$member) unset($_SESSION['alexore_member_id'], $_SESSION['alexore_member_source']);
+  }
+  if (empty($_SESSION['alexore_member_csrf'])) $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
+  respond(200, ['authenticated' => (bool) $member, 'user' => $member, 'csrf' => $_SESSION['alexore_member_csrf']]);
+}
+if ($route === 'member-auth' && $method === 'POST') {
+  if (!$memberSchemaReady) respond(503, ['error' => 'Accounts are temporarily unavailable. Please import api/schema.sql.']);
+  require_member_csrf();
+  $input = body_json();
+  $action = (string) ($input['action'] ?? 'login');
+  if ($action === 'logout') {
+    unset($_SESSION['alexore_member_id'], $_SESSION['alexore_member_source']);
+    $_SESSION['alexore_sso_suppressed'] = true;
+    $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
+    respond(200, ['authenticated' => false]);
+  }
+  if (!empty($_SESSION['alexore_member_login_blocked_until']) && time() < (int) $_SESSION['alexore_member_login_blocked_until']) {
+    respond(429, ['error' => 'Too many attempts. Wait a few minutes and try again.']);
+  }
+  $email = strtolower(trim((string) ($input['email'] ?? '')));
+  $password = (string) ($input['password'] ?? '');
+  if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 254 || strlen($password) < 10 || strlen($password) > 72) {
+    respond(422, ['error' => 'Enter a valid email and a password between 10 and 72 bytes.']);
+  }
+  if ($action === 'register') {
+    $name = trim(preg_replace('/\s+/u', ' ', strip_tags((string) ($input['fullName'] ?? ''))) ?? '');
+    if (mb_strlen($name) < 2 || mb_strlen($name) > 120) respond(422, ['error' => 'Enter your name.']);
+    $existing = $pdo->prepare('SELECT id,password_hash,is_active FROM site_members WHERE email=? LIMIT 1');
+    $existing->execute([$email]);
+    $account = $existing->fetch();
+    if ($account && (int) $account['is_active'] === 1 && $account['password_hash'] === null) {
+      $pdo->prepare('UPDATE site_members SET full_name=?,password_hash=?,last_login_at=NOW() WHERE id=?')->execute([$name, password_hash($password, PASSWORD_DEFAULT), $account['id']]);
+      $memberId = (int) $account['id'];
+    } elseif ($account) {
+      respond(409, ['error' => 'An account already exists for this email. Sign in instead.']);
+    } else {
+      try {
+        $pdo->prepare('INSERT INTO site_members(email,full_name,password_hash,last_login_at) VALUES(?,?,?,NOW())')->execute([$email, $name, password_hash($password, PASSWORD_DEFAULT)]);
+        $memberId = (int) $pdo->lastInsertId();
+      } catch (PDOException $error) {
+        if ((string) $error->getCode() === '23000') respond(409, ['error' => 'An account already exists for this email. Sign in instead.']);
+        throw $error;
+      }
+    }
+  } elseif ($action === 'login') {
+    $query = $pdo->prepare('SELECT id,password_hash FROM site_members WHERE email=? AND is_active=1 LIMIT 1');
+    $query->execute([$email]);
+    $account = $query->fetch();
+    if (!$account || !$account['password_hash'] || !password_verify($password, $account['password_hash'])) {
+      $_SESSION['alexore_member_login_attempts'] = (int) ($_SESSION['alexore_member_login_attempts'] ?? 0) + 1;
+      if ($_SESSION['alexore_member_login_attempts'] >= 5) $_SESSION['alexore_member_login_blocked_until'] = time() + 300;
+      respond(401, ['error' => 'That email or password did not match.']);
+    }
+    $memberId = (int) $account['id'];
+    $pdo->prepare('UPDATE site_members SET last_login_at=NOW() WHERE id=?')->execute([$memberId]);
+    $_SESSION['alexore_member_login_attempts'] = 0;
+  } else {
+    respond(422, ['error' => 'Choose a valid account action.']);
+  }
+  session_regenerate_id(true);
+  $_SESSION['alexore_member_id'] = $memberId;
+  $_SESSION['alexore_member_source'] = 'password';
+  $_SESSION['alexore_sso_suppressed'] = false;
+  $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
+  $member = require_member();
+  respond($action === 'register' ? 201 : 200, ['authenticated' => true, 'user' => $member, 'csrf' => $_SESSION['alexore_member_csrf']]);
+}
+
+if ($route === 'site-members' && $method === 'GET') {
+  require_admin();
+  if (!$memberSchemaReady) respond(503, ['error' => 'Member accounts are temporarily unavailable.']);
+  $page = max(1, (int) ($_GET['page'] ?? 1));
+  $pageSize = min(100, max(10, (int) ($_GET['pageSize'] ?? 25)));
+  $offset = ($page - 1) * $pageSize;
+  $search = trim((string) ($_GET['search'] ?? ''));
+  $pattern = '%' . $search . '%';
+  $where = "(?='' OR sm.full_name LIKE ? OR sm.email LIKE ?)";
+  $count = $pdo->prepare("SELECT COUNT(*) FROM site_members sm WHERE {$where}");
+  $count->execute([$search, $pattern, $pattern]);
+  $total = (int) $count->fetchColumn();
+  $members = $pdo->prepare(
+    "SELECT sm.id,sm.full_name AS fullName,sm.email,sm.is_active AS isActive,sm.created_at AS createdAt,sm.last_login_at AS lastLoginAt,EXISTS(SELECT 1 FROM students st WHERE st.email=sm.email) AS hasReoAccount FROM site_members sm WHERE {$where} ORDER BY sm.created_at DESC,sm.id DESC LIMIT {$pageSize} OFFSET {$offset}",
+  );
+  $members->execute([$search, $pattern, $pattern]);
+  respond(200, ['members' => $members->fetchAll(), 'total' => $total, 'page' => $page, 'pageSize' => $pageSize]);
+}
+if ($route === 'site-members' && $method === 'POST') {
+  require_admin();
+  require_csrf();
+  if (!$memberSchemaReady) respond(503, ['error' => 'Member accounts are temporarily unavailable.']);
+  $input = body_json();
+  $id = filter_var($input['id'] ?? null, FILTER_VALIDATE_INT);
+  $active = filter_var($input['active'] ?? null, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+  if (!$id || $active === null) respond(422, ['error' => 'Choose a valid member account action.']);
+  $update = $pdo->prepare('UPDATE site_members SET is_active=? WHERE id=?');
+  $update->execute([$active ? 1 : 0, $id]);
+  if (!$update->rowCount()) {
+    $exists = $pdo->prepare('SELECT 1 FROM site_members WHERE id=?');
+    $exists->execute([$id]);
+    if (!$exists->fetchColumn()) respond(404, ['error' => 'That member account could not be found.']);
+  }
+  respond(200, ['ok' => true, 'active' => $active]);
+}
+
 if ($route === 'subscribe' && $method === 'POST') {
   $email = filter_var(trim((string) (body_json()['email'] ?? '')), FILTER_VALIDATE_EMAIL);
   if (!$email || strlen($email) > 254) {
@@ -562,6 +722,8 @@ if ($route === 'comments' && $method === 'POST') {
     $pdo->prepare('UPDATE article_comments SET status=? WHERE id=?')->execute([$status, $id]);
     respond(200, ['ok' => true]);
   }
+  $member = require_member();
+  require_member_csrf();
   $slug = trim((string) ($input['slug'] ?? ''));
   $articleQuery = $pdo->prepare(
     "SELECT id FROM articles WHERE slug=? AND status='published' LIMIT 1",
@@ -579,18 +741,8 @@ if ($route === 'comments' && $method === 'POST') {
     respond(422, ['error' => 'Write a comment up to 3,000 characters.']);
   }
   $comment = sanitize_comment_html($commentInput);
-  $anonymous = !empty($input['anonymous']);
-  $name = $anonymous ? 'Anonymous' : trim((string) ($input['name'] ?? ''));
-  $email = null;
-  if (!$anonymous) {
-    if ($name === '' || mb_strlen($name) > 120) {
-      respond(422, ['error' => 'Add your name, or choose anonymous commenting.']);
-    }
-    $email = filter_var(trim((string) ($input['email'] ?? '')), FILTER_VALIDATE_EMAIL);
-    if (!$email || strlen($email) > 254) {
-      respond(422, ['error' => 'Enter a valid email address, or choose anonymous commenting.']);
-    }
-  }
+  $name = (string) $member['fullName'];
+  $email = (string) $member['email'];
   if ((int) ($_SESSION['last_comment_at'] ?? 0) > time() - 20) {
     respond(429, ['error' => 'Please wait a moment before posting another comment.']);
   }
@@ -600,13 +752,7 @@ if ($route === 'comments' && $method === 'POST') {
       ->prepare(
         'INSERT INTO article_comments (article_id, display_name, email, is_anonymous, comment_text, status) VALUES (?, ?, ?, ?, ?, \'pending\')',
       )
-      ->execute([$articleId, $name, $email, $anonymous ? 1 : 0, $comment]);
-    $subscribed = false;
-    if (!$anonymous && !empty($input['newsletter'])) {
-      $subscribe = $pdo->prepare('INSERT IGNORE INTO subscribers (email) VALUES (?)');
-      $subscribe->execute([$email]);
-      $subscribed = true;
-    }
+      ->execute([$articleId, $name, $email, 0, $comment]);
     $pdo->commit();
     $_SESSION['last_comment_at'] = time();
   } catch (Throwable $error) {
@@ -617,9 +763,7 @@ if ($route === 'comments' && $method === 'POST') {
   }
   respond(201, [
     'ok' => true,
-    'message' => $subscribed
-      ? 'Comment submitted for review, and you’re on the mailing list.'
-      : 'Comment submitted for review.',
+    'message' => 'Comment submitted for review.',
   ]);
 }
 
@@ -629,11 +773,8 @@ if ($route === 'like' && $method === 'GET') {
       'error' => 'Likes are temporarily unavailable. Please try again later.',
     ]);
   }
+  $member = require_member();
   $slug = trim((string) ($_GET['slug'] ?? ''));
-  $visitorId = (string) ($_GET['visitorId'] ?? '');
-  if (!preg_match('/^[a-f0-9-]{32,64}$/i', $visitorId)) {
-    respond(422, ['error' => 'Refresh the page and try again.']);
-  }
   $articleQuery = $pdo->prepare(
     "SELECT id FROM articles WHERE slug=? AND status='published' LIMIT 1",
   );
@@ -642,7 +783,7 @@ if ($route === 'like' && $method === 'GET') {
   if (!$articleId) {
     respond(404, ['error' => 'This article is not available for likes.']);
   }
-  $visitorHash = hash('sha256', strtolower($visitorId));
+  $visitorHash = hash('sha256', 'alexore-member:' . (int) $member['id']);
   $likedQuery = $pdo->prepare('SELECT 1 FROM article_likes WHERE article_id=? AND visitor_hash=?');
   $likedQuery->execute([$articleId, $visitorHash]);
   $countQuery = $pdo->prepare('SELECT COUNT(*) FROM article_likes WHERE article_id=?');
@@ -658,12 +799,10 @@ if ($route === 'like' && $method === 'POST') {
       'error' => 'Likes are temporarily unavailable. Please try again later.',
     ]);
   }
+  $member = require_member();
+  require_member_csrf();
   $input = body_json();
   $slug = trim((string) ($input['slug'] ?? ''));
-  $visitorId = (string) ($input['visitorId'] ?? '');
-  if (!preg_match('/^[a-f0-9-]{32,64}$/i', $visitorId)) {
-    respond(422, ['error' => 'Refresh the page and try again.']);
-  }
   $articleQuery = $pdo->prepare(
     "SELECT id FROM articles WHERE slug=? AND status='published' LIMIT 1",
   );
@@ -672,7 +811,7 @@ if ($route === 'like' && $method === 'POST') {
   if (!$articleId) {
     respond(404, ['error' => 'This article is not available for likes.']);
   }
-  $visitorHash = hash('sha256', strtolower($visitorId));
+  $visitorHash = hash('sha256', 'alexore-member:' . (int) $member['id']);
   $check = $pdo->prepare('SELECT 1 FROM article_likes WHERE article_id=? AND visitor_hash=?');
   $check->execute([$articleId, $visitorHash]);
   if ($check->fetchColumn()) {
@@ -842,7 +981,7 @@ if ($route === 'articles' && $method === 'GET') {
   if ($admin) {
     $rows = $pdo
       ->query(
-        "SELECT id, slug, title, category, tags, deck, cover_image AS coverImage, seo_description AS seoDescription, body, IF(status='published','Published','Draft') AS status, DATE_FORMAT(COALESCE(published_at, updated_at), '%b %e, %Y') AS date, UNIX_TIMESTAMP(updated_at) * 1000 AS updatedAt FROM articles ORDER BY updated_at DESC",
+        "SELECT id, slug, title, category, tags, deck, cover_image AS coverImage, seo_description AS seoDescription, body, view_count AS viewCount, IF(status='published','Published','Draft') AS status, DATE_FORMAT(COALESCE(published_at, updated_at), '%b %e, %Y') AS date, UNIX_TIMESTAMP(updated_at) * 1000 AS updatedAt FROM articles ORDER BY updated_at DESC",
       )
       ->fetchAll();
   } else {
@@ -861,12 +1000,28 @@ if ($route === 'articles' && $method === 'GET') {
 if ($route === 'article' && $method === 'GET') {
   $slug = trim((string) ($_GET['slug'] ?? ''));
   $statement = $pdo->prepare(
-    "SELECT id, slug, title, category, tags, deck, cover_image AS coverImage, seo_description AS seoDescription, body, 'Published' AS status, DATE_FORMAT(published_at, '%b %e, %Y') AS date FROM articles WHERE slug=? AND status='published' LIMIT 1",
+    "SELECT id, slug, title, category, tags, deck, cover_image AS coverImage, seo_description AS seoDescription, body, view_count AS viewCount, 'Published' AS status, DATE_FORMAT(published_at, '%b %e, %Y') AS date FROM articles WHERE slug=? AND status='published' LIMIT 1",
   );
   $statement->execute([$slug]);
   $article = $statement->fetch();
   if (!$article) {
     respond(404, ['error' => 'Article not found.']);
+  }
+  $articleId = (int) $article['id'];
+  $viewedArticles = $_SESSION['alexore_article_views'] ?? [];
+  if (!is_array($viewedArticles)) {
+    $viewedArticles = [];
+  }
+  if (empty($viewedArticles[$articleId])) {
+    $pdo->prepare('UPDATE articles SET view_count=view_count+1 WHERE id=?')->execute([$articleId]);
+    $viewedArticles[$articleId] = true;
+    if (count($viewedArticles) > 500) {
+      $viewedArticles = array_slice($viewedArticles, -500, null, true);
+    }
+    $_SESSION['alexore_article_views'] = $viewedArticles;
+    $article['viewCount'] = (int) $article['viewCount'] + 1;
+  } else {
+    $article['viewCount'] = (int) $article['viewCount'];
   }
   $article['read'] = article_reading_time((string) $article['body']);
   $article['likeCount'] = 0;

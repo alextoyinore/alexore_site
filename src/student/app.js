@@ -161,6 +161,10 @@ async function loadDashboard() {
   $('#studentGreeting').textContent = `Hello, ${student.fullName}`;
   $('#studentAccount').classList.remove('hidden');
   $('#studentMatricLabel').textContent = `Matric: ${student.matricNumber} · ${student.department} · ${student.level}`;
+  $('#studentAttendancePoints').textContent = String(dashboard.attendancePoints || 0);
+  $('#studentAttendanceHistory').innerHTML = dashboard.attendanceHistory?.length
+    ? `<div class="eyebrow">RECENT POINTS</div>${dashboard.attendanceHistory.slice(0, 5).map((item) => `<div><span>+1</span><b>${esc(item.assignmentTitle)}</b><small>${esc(dateLabel(item.awardedAt))}</small></div>`).join('')}`
+    : '<p class="student-notice">Your first point will appear here after you submit an assignment.</p>';
   $('#studentArticles').innerHTML = dashboard.articles.length
     ? dashboard.articles
         .map(

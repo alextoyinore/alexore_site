@@ -116,6 +116,12 @@ a {
 .main-nav a.active {
   color: var(--ink);
 }
+.main-nav .member-nav-account button {
+  color: #68787d;
+}
+.main-nav .member-nav-account button:hover {
+  color: var(--ink);
+}
 .header-search {
   order: 3;
   display: flex;
@@ -208,6 +214,103 @@ a {
 }
 .nav-cta span {
   margin-left: 13px;
+}
+.member-nav-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+.member-nav-account[hidden],
+[data-member-register][hidden],
+[data-member-login][hidden],
+.account-panel[hidden],
+.account-form[hidden] {
+  display: none !important;
+}
+.member-nav-account button {
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  padding: 0 0 2px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.account-page {
+  min-height: 65vh;
+  padding-top: clamp(55px, 9vw, 110px);
+  padding-bottom: 100px;
+}
+.account-page > h1 {
+  margin: 10px 0;
+  font: 500 clamp(42px, 7vw, 68px)/1 var(--serif);
+}
+.account-intro {
+  max-width: 520px;
+  color: #738286;
+}
+.account-panel {
+  max-width: 540px;
+  margin-top: 32px;
+  padding: clamp(22px, 5vw, 38px);
+  border: 1px solid var(--line);
+  background: #fff;
+}
+.account-mode-switch {
+  display: flex;
+  gap: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  color: #718084;
+  font-size: 12px;
+}
+.account-mode-switch a.is-active {
+  color: var(--ink);
+  font-weight: 600;
+}
+.account-form {
+  display: grid;
+  gap: 16px;
+  padding-top: 17px;
+}
+.account-form h2,
+.account-profile h2 {
+  margin: 4px 0 0;
+  font: 500 26px var(--serif);
+}
+.account-form label {
+  display: grid;
+  gap: 7px;
+  color: #526367;
+  font: 10px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.account-form input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: 15px var(--sans);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.account-form > small,
+.account-profile > p {
+  color: #738286;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.account-message {
+  min-height: 18px;
+  margin: 0;
+  color: #526367;
+  font-size: 12px;
+}
+.account-message.is-error {
+  color: #a3453f;
 }
 .menu-button {
   display: none;
@@ -1101,6 +1204,17 @@ a {
   .main-nav a {
     padding: 17px 0;
     border-bottom: 1px solid var(--line);
+  }
+  .main-nav .member-nav-account {
+    align-items: stretch;
+    gap: 0;
+  }
+  .main-nav .member-nav-account a,
+  .main-nav .member-nav-account button {
+    padding: 17px 0;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    font-size: inherit;
   }
   .main-nav .mobile-nav-brand {
     display: inline-flex;
@@ -3763,8 +3877,17 @@ body {
     flex: 0 0 auto;
     padding: 0 0 30px;
   }
+  .sidebar .side-label {
+    display: block;
+    flex: 0 0 auto;
+    padding: 0 9px 10px;
+  }
+  .sidebar .side-label-spaced {
+    margin-top: 14px;
+    padding-top: 13px;
+    border-top: 1px solid #2b373a;
+  }
   .sidebar .wordmark > span:last-child,
-  .sidebar .side-label,
   .sidebar .side-bottom {
     display: none;
   }
@@ -3888,8 +4011,7 @@ body {
   max-width: none;
   margin: 0;
   padding: 14px 18px;
-  border-left: 3px solid var(--excerpt-accent, var(--blue-deep));
-  background: var(--excerpt-bg, #dfeff9);
+  border-left: 3px solid var(--blue-deep);
   color: #516875;
   font: italic 400 clamp(15px, 1.6vw, 17px)/1.65 var(--serif);
 }
@@ -4533,6 +4655,17 @@ mark[data-highlight] {
 
 .comment-message.comment-error {
   color: #a34f48;
+}
+.article-member-prompt {
+  margin: 14px 0;
+  color: #6f7e82;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.article-member-prompt a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .article-bottom {
