@@ -69,6 +69,21 @@ To create the first dashboard account, set `ALEXORE_ADMIN_PASSWORD` in the Power
 - Dashboard page-content editors for the shop, media, and speaking pages, plus site settings for homepage/About copy and social profile URLs.
 - Subscriber CSV export and full JSON backup export from the dashboard.
 - Responsive layout for desktop and mobile.
+- Student subdomain service with student accounts, required matric-number onboarding, rich-text assignment submissions, instructor scores and feedback, pair reviews, and a class forum.
+- Assignment management and grading in the main Studio. Student registration adds the account email to the existing subscribers list and discloses this before signup.
+
+## Student subdomain deployment
+
+For local testing, run `npm run build:students:xampp`; it copies the portal to `C:\xampp\htdocs\students`, available at `http://localhost/students/` when Apache is running. It uses the local `alexore_site` database. Set **Public site URL** to `http://localhost/alexore` in the local Studio settings if the article links need an explicit local URL.
+
+1. In cPanel, create a subdomain such as `students.example.com`, set its document root to a separate folder (for example `~/students`), and enable HTTPS for it.
+2. Run `npm run build:students`. Upload the _contents_ of `dist/student-service/` into the subdomain document root. The package includes its own `index.html`, built assets, and the PHP API.
+3. Configure the subdomain API to use the **same MySQL database** as the main site. Place the shared private `alexore-config.php` one directory above the subdomain document root, or set `ALEXORE_CONFIG_PATH` for that subdomain's PHP runtime.
+4. Import `dist/student-service/schema.sql` into the shared database. It creates the student, assignment, submission, pair-review, and forum tables without removing existing data.
+5. In the main site Studio, open **Site settings** and set **Public site URL** to the main website origin (for example `https://example.com`). This controls the student portal's links to your articles.
+6. In Studio, open **Student assignments** to publish questions, close submissions, enable pair review per assignment, and enter instructor scores and feedback.
+
+Student registration accepts common consumer mailbox providers and checks the email format and provider domain's DNS. It does not send a verification code, so it does not prove mailbox ownership. Registration automatically inserts the address into `subscribers` and shows that notice to the student. The existing site stores subscribers in MySQL; actual newsletter delivery still requires connecting an email delivery provider.
 
 ## cPanel setup
 

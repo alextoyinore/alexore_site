@@ -1,3 +1,5 @@
+import { createPagination } from './pagination.js';
+
 const esc = (value) =>
   String(value ?? '').replace(
     /[&<>"']/g,
@@ -21,6 +23,7 @@ const labels = {
 };
 let items = [];
 let activeKind = 'all';
+const pager = createPagination(resultsNode, { pageSize: 12, label: 'Search results' });
 
 input.value = params.get('q') || '';
 
@@ -106,7 +109,7 @@ function render() {
   );
   if (terms.length) matches.sort((a, b) => score(b, terms) - score(a, terms));
 
-  resultsNode.innerHTML = matches.map(card).join('');
+  pager.setItems(matches, card);
   resultsNode.setAttribute('aria-busy', 'false');
   headingNode.textContent = queryText ? `Results for “${queryText}”` : 'Recent work';
   countNode.textContent = `${matches.length} ${matches.length === 1 ? 'result' : 'results'}`;

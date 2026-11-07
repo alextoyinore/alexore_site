@@ -1,3 +1,5 @@
+import { createPagination } from './pagination.js';
+
 const esc = (value) =>
   String(value ?? '').replace(
     /[&<>"']/g,
@@ -12,14 +14,14 @@ const list = document.querySelector('#writingList');
 const search = document.querySelector('#catalogSearch');
 const empty = document.querySelector('#catalogEmpty');
 let articles = [];
+const pager = createPagination(list, { pageSize: 12, label: 'Writing' });
 
 function renderWriting() {
   const query = (search.value || '').toLocaleLowerCase();
   const results = articles.filter((item) =>
     [item.title, item.category, item.deck, item.tags].join(' ').toLocaleLowerCase().includes(query)
   );
-  list.innerHTML = results
-    .map((item) => {
+  pager.setItems(results, (item) => {
       const url = `article.html?slug=${encodeURIComponent(item.slug)}`;
       const image =
         /^https?:\/\//i.test(item.coverImage || '') ||
@@ -31,8 +33,7 @@ function renderWriting() {
       )
         .map((tag) => `<a href="browse.html?tag=${encodeURIComponent(tag)}">#${esc(tag)}</a>`)
         .join('')}</div><a class="card-arrow" href="${url}">Read article ↗</a></article>`;
-    })
-    .join('');
+    });
   empty.classList.toggle('hidden', results.length > 0);
 }
 

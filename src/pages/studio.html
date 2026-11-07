@@ -45,56 +45,79 @@
     </span>
   </a>
   <div class="side-label">WORKSPACE</div>
-  <button class="side-link selected" data-view="overview">
+  <button class="side-link selected" data-view="overview" aria-label="Overview" title="Overview">
     <span>◫</span>
     Overview
   </button>
-  <button class="side-link" data-view="writing">
+  <div class="side-label side-label-spaced">WRITING</div>
+  <button class="side-link" data-view="writing" aria-label="My writings" title="My writings">
     <span>▤</span>
-    Writing
+    My writings
     <i id="draftCount">0</i>
   </button>
-  <button class="side-link" data-view="comments">
+  <button class="side-link" data-view="writing-create" aria-label="Create writing" title="Create writing">
+    <span>＋</span>
+    Create writing
+  </button>
+  <div class="side-label side-label-spaced">COMMUNITY</div>
+  <button class="side-link" data-view="comments" aria-label="Comments" title="Comments">
     <span>▱</span>
     Comments
   </button>
-  <button class="side-link" data-view="messages">
+  <button class="side-link" data-view="messages" aria-label="Messages" title="Messages">
     <span>✉</span>
     Messages
     <i id="contactMessageCount">0</i>
   </button>
-  <button class="side-link" data-view="audience">
+  <button class="side-link" data-view="audience" aria-label="Audience" title="Audience">
     <span>♧</span>
     Audience
   </button>
-  <div class="side-label side-label-spaced">PUBLISH</div>
-  <button class="side-link" data-view="shop">
+  <div class="side-label side-label-spaced">STUDENTS</div>
+  <button class="side-link" data-view="assignments" aria-label="Assignments" title="Assignments">
+    <span>✎</span>
+    Assignments
+  </button>
+  <button class="side-link" data-view="assignment-create" aria-label="Create assignment" title="Create assignment">
+    <span>＋</span>
+    Create assignment
+  </button>
+  <button class="side-link" data-view="assignment-submissions" aria-label="Submissions & grading" title="Submissions & grading">
+    <span>▣</span>
+    Submissions & grading
+  </button>
+  <button class="side-link" data-view="student-activity" aria-label="Student activity" title="Student activity">
+    <span>◷</span>
+    Student activity
+  </button>
+  <div class="side-label side-label-spaced">PUBLISHING</div>
+  <button class="side-link" data-view="shop" aria-label="Books & products" title="Books & products">
     <span>◇</span>
     Books & products
   </button>
-  <button class="side-link" data-view="library">
+  <button class="side-link" data-view="library" aria-label="Video & podcasts" title="Video & podcasts">
     <span>◉</span>
     Video & podcasts
   </button>
-  <div class="side-label side-label-spaced">PAGE CONTENT</div>
-  <button class="side-link" data-view="about">
+  <div class="side-label side-label-spaced">SITE PAGES</div>
+  <button class="side-link" data-view="about" aria-label="About page" title="About page">
     <span>◌</span>
     About page
   </button>
-  <button class="side-link" data-view="products">
+  <button class="side-link" data-view="products" aria-label="Shop page" title="Shop page">
     <span>▧</span>
     Shop page
   </button>
-  <button class="side-link" data-view="media">
+  <button class="side-link" data-view="media" aria-label="Media page" title="Media page">
     <span>▣</span>
     Media page
   </button>
-  <button class="side-link" data-view="speaking">
+  <button class="side-link" data-view="speaking" aria-label="Speaking page" title="Speaking page">
     <span>✳</span>
     Speaking page
   </button>
   <div class="side-label side-label-spaced">PREFERENCES</div>
-  <button class="side-link" data-view="settings">
+  <button class="side-link" data-view="settings" aria-label="Site settings" title="Site settings">
     <span>⚙</span>
     Site settings
   </button>
@@ -109,7 +132,12 @@
 </aside>
 <main class="studio-main">
   <header class="studio-top">
-    <button class="studio-sidebar-toggle" type="button" aria-label="Open studio navigation" aria-expanded="false">
+    <button
+      class="studio-sidebar-toggle"
+      type="button"
+      aria-label="Open studio navigation"
+      aria-expanded="false"
+    >
       ☰
     </button>
     <a class="back-site" href="index.html">
@@ -541,7 +569,16 @@
         </svg>
       </button>
       <button type="button" data-action="image">▧ Image</button>
+      <button type="button" data-action="table" aria-label="Insert table" title="Insert table">
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <rect x="2.5" y="3" width="15" height="14" rx="1" />
+          <path d="M2.5 8h15M7.5 3v14M12.5 3v14" />
+        </svg>
+      </button>
       <button type="button" data-command="insertHorizontalRule" title="Divider">—</button>
+      <button type="button" data-command="codeBlock" title="Code block" aria-label="Code block">
+        <code>&lt;/&gt;</code>
+      </button>
       <span></span>
       <button type="button" data-action="clear">Clear</button>
     </div>
@@ -620,11 +657,20 @@
         <div class="eyebrow">YOUR IMAGE LIBRARY</div>
         <h2 id="imagePickerTitle">Choose an image</h2>
       </div>
-      <button type="button" id="imagePickerClose" class="image-picker-close" aria-label="Close image picker">Close</button>
+      <button
+        type="button"
+        id="imagePickerClose"
+        class="image-picker-close"
+        aria-label="Close image picker"
+      >
+        Close
+      </button>
     </header>
     <div class="image-picker-actions">
       <p>Select a previously uploaded image, or add a new one.</p>
-      <button type="button" class="button button-dark" id="imagePickerUpload">Upload a new image</button>
+      <button type="button" class="button button-dark" id="imagePickerUpload">
+        Upload a new image
+      </button>
     </div>
     <div id="imagePickerStatus" class="image-picker-status" role="status"></div>
     <div id="imagePickerGrid" class="image-picker-grid"></div>

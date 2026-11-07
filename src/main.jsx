@@ -18,6 +18,7 @@ import privacy from './pages/privacy.html?raw';
 import search from './pages/search.html?raw';
 import speaking from './pages/speaking.html?raw';
 import studio from './pages/studio.html?raw';
+import students from './student/page.html?raw';
 import teaching from './pages/teaching.html?raw';
 import terms from './pages/terms.html?raw';
 
@@ -37,6 +38,7 @@ const pages = {
   'search.html': search,
   'speaking.html': speaking,
   'studio.html': studio,
+  'students.html': students,
   'teaching.html': teaching,
   'terms.html': terms,
 };
@@ -86,6 +88,7 @@ const pageScripts = {
   'search.html': ['search.js', 'detail.js', 'header-search.js'],
   'speaking.html': ['detail.js', 'header-search.js'],
   'studio.html': ['studio.js'],
+  'students.html': [],
   'teaching.html': ['detail.js', 'header-search.js'],
   'terms.html': ['detail.js', 'header-search.js'],
 };
@@ -139,7 +142,12 @@ function StudioPage({ parts }) {
 }
 
 function ReactSite() {
-  const filename = location.pathname.split('/').filter(Boolean).pop() || 'index.html';
+  const pathname = location.pathname.split('/').filter(Boolean).pop() || 'index.html';
+  const studentApp =
+    document.body.dataset.app === 'student' ||
+    pathname === 'students' ||
+    pathname === 'students.html';
+  const filename = studentApp ? 'students.html' : pathname;
   const source = pages[filename] || home;
   const chromeDoc = useMemo(() => new DOMParser().parseFromString(chrome, 'text/html'), []);
   const [parts] = useState(() => {
@@ -158,6 +166,10 @@ function ReactSite() {
     document.title = parts.title || 'alexore — Notes on work, money & becoming';
     document.body.classList.toggle('studio-body', filename === 'studio.html');
     (async () => {
+      if (studentApp) {
+        await import('./student/app.js');
+        return;
+      }
       for (const name of scriptNames) {
         const path = `../${name}`;
         const loadModule = legacyModules[path];
@@ -165,9 +177,10 @@ function ReactSite() {
         await loadModule();
       }
     })().catch((error) => console.error('Could not initialize this page:', error));
-  }, [filename, parts, scriptNames]);
+  }, [filename, parts, scriptNames, studentApp]);
 
   if (filename === 'studio.html') return <StudioPage parts={parts} />;
+  if (filename === 'students.html') return parts.main ? <RawElement element={parts.main} /> : null;
 
   return (
     <>

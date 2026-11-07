@@ -1,0 +1,160 @@
+<title>Reo — Learning Studio</title>
+<main class="student-app">
+  <header class="student-header">
+    <a class="wordmark" href="index.html">
+      <span class="mark">R</span>
+      <span>
+        REO
+        <small>LEARNING STUDIO</small>
+      </span>
+    </a>
+    <div id="studentAccount" class="student-account hidden">
+      <span id="studentGreeting"></span>
+      <button id="studentLogout" class="plain-link" type="button">Sign out</button>
+    </div>
+  </header>
+  <section id="studentLoadError" class="student-auth hidden" aria-live="polite">
+    <div class="student-auth-card">
+      <div class="eyebrow">REO LEARNING STUDIO</div>
+      <h1>We couldn’t load your dashboard.</h1>
+      <p id="studentLoadErrorMessage" class="student-message is-error"></p>
+      <button id="studentDashboardRetry" class="button button-dark" type="button">Try again <span>↻</span></button>
+    </div>
+  </section>
+  <section id="studentAuth" class="student-auth">
+    <div class="student-auth-card">
+      <div class="eyebrow">LEARN, SHARE, BECOME</div>
+      <h1 id="studentAuthTitle">Your learning studio.</h1>
+      <p id="studentAuthCopy">
+        Sign in or create a student account to access assignments and your learning community.
+      </p>
+      <form id="studentLoginForm" class="student-form">
+        <label class="field-label">
+          EMAIL ADDRESS
+          <input name="email" type="email" autocomplete="email" required />
+        </label>
+        <label class="field-label">
+          PASSWORD
+          <input
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+            minlength="10"
+          />
+        </label>
+        <button class="button button-dark" type="submit">
+          Sign in
+          <span>↗</span>
+        </button>
+      </form>
+      <form id="studentRegisterForm" class="student-form hidden">
+        <label class="field-label">
+          FULL NAME
+          <input name="fullName" autocomplete="name" required minlength="2" maxlength="160" />
+        </label>
+        <label class="field-label">
+          EMAIL ADDRESS
+          <input name="email" type="email" autocomplete="email" required />
+        </label>
+        <small class="student-notice">
+          Use an email from Gmail, Yahoo, Outlook, iCloud, Proton Mail, or another supported
+          provider. Private/custom-domain and disposable email addresses are not accepted.
+        </small>
+        <label class="field-label">
+          PASSWORD
+          <input
+            name="password"
+            type="password"
+            autocomplete="new-password"
+            required
+            minlength="10"
+            maxlength="72"
+          />
+        </label>
+        <small class="student-notice">
+          When you register, your email is automatically added to Alex Ore’s email list for
+          occasional updates. Contact Alex Ore through the main site if you want to be removed.
+        </small>
+        <button class="button button-dark" type="submit">
+          Create account
+          <span>↗</span>
+        </button>
+      </form>
+      <p id="studentAuthMessage" class="student-message" role="status" aria-live="polite"></p>
+      <button id="studentAuthToggle" class="text-link" type="button">
+        New here? Create an account →
+      </button>
+    </div>
+  </section>
+  <section id="matricGate" class="student-auth hidden">
+    <form id="matricForm" class="student-auth-card student-form">
+      <div class="eyebrow">ONE LAST STEP</div>
+      <h1>Complete your student profile.</h1>
+      <p>
+        Add your student details so we can show coursework for your department and level.
+      </p>
+      <label class="field-label">
+        MATRIC NUMBER
+        <input name="matricNumber" autocomplete="off" minlength="3" maxlength="40" required />
+      </label>
+      <label class="field-label">
+        PHONE NUMBER
+        <input name="phone" type="tel" autocomplete="tel" required maxlength="30" />
+      </label>
+      <label class="field-label">
+        DEPARTMENT
+        <input name="department" autocomplete="organization-title" required maxlength="120" placeholder="e.g. Computer Science" />
+      </label>
+      <label class="field-label">
+        LEVEL
+        <input name="level" list="studentLevelOptions" required maxlength="40" placeholder="e.g. 300 Level" />
+        <datalist id="studentLevelOptions">
+          <option value="100 Level"></option><option value="200 Level"></option>
+          <option value="300 Level"></option><option value="400 Level"></option>
+          <option value="500 Level"></option><option value="600 Level"></option>
+          <option value="700 Level"></option><option value="800 Level"></option>
+        </datalist>
+      </label>
+      <p id="matricMessage" class="student-message" role="status"></p>
+      <button class="button button-dark" type="submit">
+        Continue
+        <span>↗</span>
+      </button>
+    </form>
+  </section>
+  <section id="studentWorkspace" class="student-workspace hidden">
+    <div class="student-welcome">
+      <div class="eyebrow">REO LEARNING STUDIO</div>
+      <h1>Keep learning. Keep becoming.</h1>
+      <p>Choose an assignment, share your work, and learn from each other.</p>
+    </div>
+    <nav class="student-tabs" aria-label="Reo learning studio sections">
+      <button class="is-active" data-student-view="assignments" type="button">Assignments</button>
+      <button data-student-view="reviews" type="button">Pair review</button>
+      <button data-student-view="forum" type="button">Forum</button>
+      <button data-student-view="profile" type="button">My profile</button>
+    </nav>
+    <div class="student-layout">
+      <section id="studentMainPanel" class="student-main-panel"></section>
+      <aside class="student-side-panel">
+        <div class="student-panel">
+          <div class="eyebrow">RECENT WRITING</div>
+          <h2>From the notebook</h2>
+          <div id="studentArticles"></div>
+        </div>
+        <div class="student-panel">
+          <div class="eyebrow">YOUR PROFILE</div>
+          <p id="studentMatricLabel"></p>
+          <p class="student-notice">
+            Your assignment scores and instructor feedback appear in your submission cards.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </section>
+  <footer class="student-footer">
+    <span class="student-footer-brand">ALEXORE STUDENT STUDIO</span>
+    <span>Learn, share, become.</span>
+  </footer>
+</main>

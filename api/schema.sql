@@ -124,3 +124,133 @@ PREPARE alexore_schema_statement FROM @alexore_schema_sql;
 EXECUTE alexore_schema_statement;
 DEALLOCATE PREPARE alexore_schema_statement;
 UPDATE users SET display_name = 'Alex Ore' WHERE role = 'admin' AND display_name = '';
+
+-- Student learning service: safe additive tables shared by the main site and its student subdomain.
+CREATE TABLE IF NOT EXISTS students (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  full_name VARCHAR(160) NOT NULL,
+  email VARCHAR(254) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  matric_number VARCHAR(40) NULL UNIQUE,
+  phone VARCHAR(30) NULL,
+  department VARCHAR(120) NULL,
+  level VARCHAR(40) NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_login_at DATETIME NULL,
+  INDEX idx_students_name (full_name),
+  INDEX idx_students_department_level (department, level)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Add profile and assignment targeting fields to existing student databases.
+SET @has_student_phone = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='students' AND COLUMN_NAME='phone');
+SET @student_profile_sql = IF(@has_student_phone=0, 'ALTER TABLE students ADD COLUMN phone VARCHAR(30) NULL AFTER matric_number', 'SELECT 1');
+PREPARE student_profile_statement FROM @student_profile_sql;
+EXECUTE student_profile_statement;
+DEALLOCATE PREPARE student_profile_statement;
+SET @has_student_department = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='students' AND COLUMN_NAME='department');
+SET @student_profile_sql = IF(@has_student_department=0, 'ALTER TABLE students ADD COLUMN department VARCHAR(120) NULL AFTER phone', 'SELECT 1');
+PREPARE student_profile_statement FROM @student_profile_sql;
+EXECUTE student_profile_statement;
+DEALLOCATE PREPARE student_profile_statement;
+SET @has_student_level = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='students' AND COLUMN_NAME='level');
+SET @student_profile_sql = IF(@has_student_level=0, 'ALTER TABLE students ADD COLUMN level VARCHAR(40) NULL AFTER department', 'SELECT 1');
+PREPARE student_profile_statement FROM @student_profile_sql;
+EXECUTE student_profile_statement;
+DEALLOCATE PREPARE student_profile_statement;
+SET @has_student_target_index = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='students' AND INDEX_NAME='idx_students_department_level');
+SET @student_index_sql = IF(@has_student_target_index=0, 'CREATE INDEX idx_students_department_level ON students(department,level)', 'SELECT 1');
+PREPARE student_index_statement FROM @student_index_sql;
+EXECUTE student_index_statement;
+DEALLOCATE PREPARE student_index_statement;
+
+CREATE TABLE IF NOT EXISTS assignments (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(240) NOT NULL,
+  question MEDIUMTEXT NOT NULL,
+  department VARCHAR(120) NULL,
+  level VARCHAR(40) NULL,
+  status ENUM('open','closed') NOT NULL DEFAULT 'open',
+  pair_review TINYINT(1) NOT NULL DEFAULT 0,
+  due_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_assignments_status (status, due_at),
+  INDEX idx_assignments_target (department, level, status, due_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @has_assignment_department = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='assignments' AND COLUMN_NAME='department');
+SET @assignment_target_sql = IF(@has_assignment_department=0, 'ALTER TABLE assignments ADD COLUMN department VARCHAR(120) NULL AFTER question', 'SELECT 1');
+PREPARE assignment_target_statement FROM @assignment_target_sql;
+EXECUTE assignment_target_statement;
+DEALLOCATE PREPARE assignment_target_statement;
+SET @has_assignment_level = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='assignments' AND COLUMN_NAME='level');
+SET @assignment_target_sql = IF(@has_assignment_level=0, 'ALTER TABLE assignments ADD COLUMN level VARCHAR(40) NULL AFTER department', 'SELECT 1');
+PREPARE assignment_target_statement FROM @assignment_target_sql;
+EXECUTE assignment_target_statement;
+DEALLOCATE PREPARE assignment_target_statement;
+SET @has_assignment_target_index = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='assignments' AND INDEX_NAME='idx_assignments_target');
+SET @assignment_index_sql = IF(@has_assignment_target_index=0, 'CREATE INDEX idx_assignments_target ON assignments(department,level,status,due_at)', 'SELECT 1');
+PREPARE assignment_index_statement FROM @assignment_index_sql;
+EXECUTE assignment_index_statement;
+DEALLOCATE PREPARE assignment_index_statement;
+
+CREATE TABLE IF NOT EXISTS student_submissions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  assignment_id BIGINT UNSIGNED NOT NULL,
+  student_id BIGINT UNSIGNED NOT NULL,
+  body MEDIUMTEXT NOT NULL,
+  submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  instructor_score DECIMAL(5,2) NULL,
+  instructor_feedback MEDIUMTEXT NULL,
+  INDEX idx_submissions_assignment (assignment_id, submitted_at),
+  UNIQUE KEY uq_submission_student_assignment (student_id, assignment_id),
+  CONSTRAINT fk_student_submissions_assignment FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE CASCADE,
+  CONSTRAINT fk_student_submissions_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS pair_reviews (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  submission_id BIGINT UNSIGNED NOT NULL,
+  reviewer_student_id BIGINT UNSIGNED NOT NULL,
+  score DECIMAL(5,2) NULL,
+  feedback MEDIUMTEXT NULL,
+  reviewed_at DATETIME NULL,
+  UNIQUE KEY uq_pair_review (submission_id, reviewer_student_id),
+  INDEX idx_pair_reviews_reviewer (reviewer_student_id, reviewed_at),
+  CONSTRAINT fk_pair_reviews_submission FOREIGN KEY (submission_id) REFERENCES student_submissions(id) ON DELETE CASCADE,
+  CONSTRAINT fk_pair_reviews_reviewer FOREIGN KEY (reviewer_student_id) REFERENCES students(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS student_forum_posts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  student_id BIGINT UNSIGNED NOT NULL,
+  title VARCHAR(180) NOT NULL,
+  body MEDIUMTEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_student_forum_posts_created (created_at),
+  CONSTRAINT fk_student_forum_posts_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS student_forum_comments (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  post_id BIGINT UNSIGNED NOT NULL,
+  student_id BIGINT UNSIGNED NOT NULL,
+  body MEDIUMTEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_student_forum_comments_post (post_id, created_at),
+  CONSTRAINT fk_student_forum_comments_post FOREIGN KEY (post_id) REFERENCES student_forum_posts(id) ON DELETE CASCADE,
+  CONSTRAINT fk_student_forum_comments_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS student_activity_log (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  student_id BIGINT UNSIGNED NULL,
+  assignment_id BIGINT UNSIGNED NULL,
+  event_type VARCHAR(40) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_student_activity_created (created_at),
+  INDEX idx_student_activity_student (student_id, created_at),
+  CONSTRAINT fk_student_activity_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE SET NULL,
+  CONSTRAINT fk_student_activity_assignment FOREIGN KEY (assignment_id) REFERENCES assignments(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

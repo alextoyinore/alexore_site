@@ -1,3 +1,6 @@
+import { createPagination } from './pagination.js';
+import './src/student/styles.css';
+
 // Private publishing studio: authentication, dashboard data, article editing, media uploads, and admin views.
 const $ = (selector) => document.querySelector(selector);
 const API = 'api/index.php';
@@ -10,7 +13,10 @@ const closeStudioSidebar = () => {
 studioMenuButton?.addEventListener('click', () => {
   const open = document.body.classList.toggle('studio-sidebar-open');
   studioMenuButton.setAttribute('aria-expanded', String(open));
-  studioMenuButton.setAttribute('aria-label', open ? 'Close studio navigation' : 'Open studio navigation');
+  studioMenuButton.setAttribute(
+    'aria-label',
+    open ? 'Close studio navigation' : 'Open studio navigation'
+  );
 });
 document.querySelector('body')?.addEventListener('click', (event) => {
   if (
@@ -41,6 +47,7 @@ let autosaveTimer = null;
 let serverAutosaveTimer = null;
 let articleSaveInProgress = false;
 let articlePreviewOpen = false;
+let articleEditorSuspended = false;
 let displayName = 'Alex Ore';
 let savedEditorRange = null;
 let uploadTarget = 'body';
@@ -81,6 +88,36 @@ function escapeHtml(value = '') {
     /[&<>"']/g,
     (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]
   );
+}
+
+const studioEditorIcons = {
+  undo: '<path d="M9 14 4 9l5-5M4 9h9a7 7 0 010 14h-2"/>',
+  redo: '<path d="m15 14 5-5-5-5m5 5h-9a7 7 0 000 14h2"/>',
+  bold: '<path d="M6 4h6a3 3 0 010 6H6zm0 6h7a3 3 0 010 6H6z"/>',
+  italic: '<path d="M9 4h7M4 16h7M13 4 7 16"/>',
+  underline: '<path d="M5 4v5a5 5 0 0010 0V4M4 19h12"/>',
+  code: '<path d="m8 8-4 4 4 4m8-8 4 4-4 4m-5-10-2 12"/>',
+  bullets: '<circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/><path d="M8 6h12M8 12h12M8 18h12"/>',
+  numbers: '<path d="M9 6h11M9 12h11M9 18h11M3 5h2v3M3 11h2l-2 2h2M3 17h2v2H3"/>',
+  quote: '<path d="M4 6h6v5H5v6H3v-8zm10 0h6v5h-5v6h-2v-8z"/>',
+  link: '<path d="M8 12l4-4m-5-1-2 2a3 3 0 004 4l2-2m2-4 2-2a3 3 0 014 4l-2 2"/>',
+  table: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M9 4v16M15 4v16"/>',
+};
+function studioEditorButton(icon, label, attrs) {
+  return `<button type="button" data-assignment-command="${attrs}" title="${label}" aria-label="${label}"><svg viewBox="0 0 24 24" aria-hidden="true">${studioEditorIcons[icon]}</svg></button>`;
+}
+function formatCodeBlock(editor) {
+  editor.focus();
+  document.execCommand('formatBlock', false, 'pre');
+  const selection = window.getSelection();
+  const anchor = selection?.anchorNode;
+  const pre = anchor?.nodeType === Node.ELEMENT_NODE
+    ? anchor.closest('pre')
+    : anchor?.parentElement?.closest('pre');
+  if (!pre || !editor.contains(pre) || pre.querySelector('code')) return;
+  const code = document.createElement('code');
+  while (pre.firstChild) code.append(pre.firstChild);
+  pre.append(code);
 }
 
 function safeCommentHtml(html = '') {
@@ -287,10 +324,36 @@ function renderSubscriberGrowth() {
     `${newSubscribers} new in 12 months · subscriber totals by month`;
 }
 
+function revealArticleEditor() {
+  ['.studio-heading', '#stats', '#overviewPanels', '#bottomPanels', '#detailPanel'].forEach(
+    (selector) => $(selector)?.classList.add('hidden')
+  );
+  $('#editorPage').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function suspendArticleEditor() {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  saveLocalDraft();
+  clearInterval(serverAutosaveTimer);
+  serverAutosaveTimer = null;
+  articleEditorSuspended = true;
+  $('#editorPage').classList.add('hidden');
+}
+
+function resumeArticleEditor() {
+  articleEditorSuspended = false;
+  startServerAutosave();
+  revealArticleEditor();
+}
+
 function openEditor(article = null) {
   // Reuse the editor form for new articles and existing drafts/published articles.
+  articleEditorSuspended = false;
   editingId = article?.id || null;
   editorReturnView = document.querySelector('.side-link.selected')?.dataset.view || 'overview';
+  if (editorReturnView === 'writing-create') editorReturnView = 'writing';
   $('#editorHeading').textContent = article ? 'Edit article' : 'Write a new article';
   $('#publishArticle').innerHTML =
     article?.status === 'Published'
@@ -312,11 +375,7 @@ function openEditor(article = null) {
   if (!article) localStorage.removeItem(draftKey());
   updateWritingStats();
   startServerAutosave();
-  ['.studio-heading', '#stats', '#overviewPanels', '#bottomPanels', '#detailPanel'].forEach(
-    (selector) => $(selector)?.classList.add('hidden')
-  );
-  $('#editorPage').classList.remove('hidden');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  revealArticleEditor();
   setTimeout(() => $('#articleTitle').focus(), 100);
 }
 
@@ -376,8 +435,8 @@ async function collect(status) {
 
 $('#editorClose').addEventListener('click', closeEditor);
 $('#articleForm').addEventListener('submit', (event) => event.preventDefault());
-$('#newPost').addEventListener('click', () => openEditor());
-$('#quickArticle').addEventListener('click', () => openEditor());
+$('#newPost').addEventListener('click', () => setView('writing-create'));
+$('#quickArticle').addEventListener('click', () => setView('writing-create'));
 $('#saveDraft').addEventListener('click', () => collect('Draft'));
 $('#publishArticle').addEventListener('click', () => collect('Published'));
 function wordCount() {
@@ -479,7 +538,8 @@ document
 document.querySelectorAll('.editor-toolbar [data-command]').forEach((button) =>
   button.addEventListener('click', () => {
     $('#articleBody').focus();
-    document.execCommand(button.dataset.command, false, null);
+    if (button.dataset.command === 'codeBlock') formatCodeBlock($('#articleBody'));
+    else document.execCommand(button.dataset.command, false, null);
     scheduleLocalDraft();
   })
 );
@@ -555,6 +615,20 @@ document.querySelectorAll('.editor-toolbar [data-action]').forEach((button) =>
       uploadTarget = 'body';
       openImagePicker();
     }
+    if (action === 'table') {
+      const rowsInput = prompt('Number of rows (1–12)', '3');
+      if (rowsInput !== null) {
+        const colsInput = prompt('Number of columns (1–8)', '3');
+        if (colsInput !== null) {
+          const rows = Math.max(1, Math.min(12, Number(rowsInput) || 0));
+          const cols = Math.max(1, Math.min(8, Number(colsInput) || 0));
+          if (rows && cols) {
+            const table = `<table><thead><tr>${Array.from({ length: cols }, (_, i) => `<th>Column ${i + 1}</th>`).join('')}</tr></thead><tbody>${Array.from({ length: rows }, () => `<tr>${Array.from({ length: cols }, () => '<td><br></td>').join('')}</tr>`).join('')}</tbody></table><p><br></p>`;
+            insertHtmlAtCursor(table);
+          }
+        }
+      }
+    }
     if (action === 'clear') {
       $('#articleBody').focus();
       document.execCommand('removeFormat', false, null);
@@ -563,6 +637,12 @@ document.querySelectorAll('.editor-toolbar [data-action]').forEach((button) =>
   })
 );
 document.querySelectorAll('.editor-toolbar [data-action="link"]').forEach((button) =>
+  button.addEventListener('mousedown', (event) => {
+    event.preventDefault();
+    rememberEditorRange();
+  })
+);
+document.querySelectorAll('.editor-toolbar [data-action="table"]').forEach((button) =>
   button.addEventListener('mousedown', (event) => {
     event.preventDefault();
     rememberEditorRange();
@@ -644,8 +724,12 @@ const compressImageForUpload = async (file) => {
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.82));
     if (!blob || !blob.type.startsWith('image/')) return file;
     if (blob.size >= file.size) return file;
-    const extension = blob.type === 'image/webp' ? 'webp' : blob.type === 'image/jpeg' ? 'jpg' : 'png';
-    return new File([blob], `image.${extension}`, { type: blob.type, lastModified: file.lastModified });
+    const extension =
+      blob.type === 'image/webp' ? 'webp' : blob.type === 'image/jpeg' ? 'jpg' : 'png';
+    return new File([blob], `image.${extension}`, {
+      type: blob.type,
+      lastModified: file.lastModified,
+    });
   } catch {
     return file;
   } finally {
@@ -781,7 +865,147 @@ function downloadFile(name, data, type) {
   URL.revokeObjectURL(url);
 }
 
-async function setView(view) {
+async function renderAssignmentStudioView(view, panel, options = {}) {
+  const result = await api('assignments');
+  const assignments = result.assignments || [];
+
+  if (view === 'assignments') {
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">STUDENT LEARNING SERVICE</div><h2>Assignments</h2></div><button id="createAssignment" class="button button-dark" type="button">＋ Create assignment</button></div><p>Manage prompts here. Open submissions and grading separately to review student work.</p><div id="studioAssignmentList" class="studio-assignment-list"></div>`;
+    $('#createAssignment').onclick = () => setView('assignment-create');
+    createPagination($('#studioAssignmentList'), { pageSize: 15, label: 'Assignments' }).setItems(
+      assignments,
+      (assignment) => `<article class="studio-assignment-card"><div><h3>${escapeHtml(assignment.title)}</h3><p>${escapeHtml(assignment.status.toUpperCase())} · ${Number(assignment.submissionCount)} submissions · ${escapeHtml(assignment.department || 'All departments')} · ${escapeHtml(assignment.level || 'All levels')} · ${Number(assignment.pairReview) ? 'Pair review' : 'Individual'}</p></div><div class="studio-assignment-actions"><button class="plain-link edit-assignment" type="button" data-id="${assignment.id}">Edit</button><button class="plain-link view-assignment-submissions" type="button" data-id="${assignment.id}">View submissions</button><button class="plain-link delete-assignment" type="button" data-id="${assignment.id}">Delete</button></div></article>`
+    );
+    panel.onclick = async (event) => {
+      const button = event.target.closest('button[data-id]');
+      if (!button) return;
+      if (button.matches('.edit-assignment')) {
+        setView('assignment-create', { assignmentId: button.dataset.id });
+      } else if (button.matches('.view-assignment-submissions')) {
+        setView('assignment-submissions', { assignmentId: button.dataset.id });
+      } else if (button.matches('.delete-assignment')) {
+        const assignment = assignments.find((row) => String(row.id) === button.dataset.id);
+        if (!assignment || !confirm(`Delete “${assignment.title}”? This permanently removes its student submissions and pair reviews.`)) return;
+        button.disabled = true;
+        try {
+          await api('assignments', { method: 'DELETE', data: { id: assignment.id } });
+          toast('Assignment deleted.');
+          await setView('assignments');
+        } catch (error) {
+          button.disabled = false;
+          toast(error.message);
+        }
+      }
+    };
+    return;
+  }
+
+  if (view === 'assignment-create') {
+    const assignment = assignments.find((row) => String(row.id) === String(options.assignmentId)) || null;
+    const departmentOptions = (result.departments || []).map((value) => `<option value="${escapeHtml(value)}"></option>`).join('');
+    const levelOptions = (result.levels || []).map((value) => `<option value="${escapeHtml(value)}"></option>`).join('');
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">STUDENT LEARNING SERVICE</div><h2>${assignment ? 'Edit assignment' : 'Create assignment'}</h2></div><button class="plain-link" type="button" id="backToAssignments">← All assignments</button></div><form id="assignmentAdminForm" class="products-form"><input type="hidden" name="id" value="${assignment ? assignment.id : ''}"><label class="field-label">ASSIGNMENT TITLE<input name="title" maxlength="240" required value="${escapeHtml(assignment?.title || '')}"></label><div class="field-row"><label class="field-label">DEPARTMENT TARGET (OPTIONAL)<input name="department" list="assignmentDepartments" maxlength="120" placeholder="All departments" value="${escapeHtml(assignment?.department || '')}"><datalist id="assignmentDepartments">${departmentOptions}</datalist></label><label class="field-label">LEVEL TARGET (OPTIONAL)<input name="level" list="assignmentLevels" maxlength="40" placeholder="All levels" value="${escapeHtml(assignment?.level || '')}"><datalist id="assignmentLevels">${levelOptions}</datalist></label></div><label class="field-label">QUESTION / INSTRUCTIONS</label><div class="student-editor-toolbar" role="toolbar" aria-label="Assignment question formatting">${studioEditorButton('undo','Undo','undo')}${studioEditorButton('redo','Redo','redo')}<i aria-hidden="true"></i>${studioEditorButton('bold','Bold','bold')}${studioEditorButton('italic','Italic','italic')}${studioEditorButton('underline','Underline','underline')}${studioEditorButton('bullets','Bulleted list','insertUnorderedList')}${studioEditorButton('numbers','Numbered list','insertOrderedList')}${studioEditorButton('quote','Quote','formatBlock:blockquote')}${studioEditorButton('code','Code block','code')}${studioEditorButton('link','Insert link','action:link')}${studioEditorButton('table','Insert table','action:table')}</div><div id="assignmentQuestion" class="student-editor-body" contenteditable="true" role="textbox" aria-label="Assignment question" aria-multiline="true">${assignment?.question || '<p><br></p>'}</div><div class="field-row"><label class="field-label">DUE DATE (OPTIONAL)<input name="dueAt" type="datetime-local" value="${assignment?.dueAt ? escapeHtml(assignment.dueAt.slice(0, 16).replace(' ', 'T')) : ''}"></label><label class="field-label">STATUS<select name="status"><option value="open" ${assignment?.status !== 'closed' ? 'selected' : ''}>Open</option><option value="closed" ${assignment?.status === 'closed' ? 'selected' : ''}>Closed</option></select></label></div><label class="field-label"><span><input name="pairReview" type="checkbox" ${Number(assignment?.pairReview) === 1 ? 'checked' : ''}> Enable pair review for this assignment</span></label><div class="settings-actions"><button class="button button-dark" type="submit">${assignment ? 'Save changes' : 'Post assignment'} <span>↗</span></button><button id="resetAssignmentForm" class="button button-outline" type="button">Clear</button></div></form>`;
+    const form = $('#assignmentAdminForm');
+    $('#backToAssignments').onclick = () => setView('assignments');
+    $('#resetAssignmentForm').onclick = () => assignment ? setView('assignment-create', { assignmentId: assignment.id }) : (form.reset(), ($('#assignmentQuestion').innerHTML = '<p><br></p>'));
+    panel.querySelectorAll('[data-assignment-command]').forEach((button) => {
+      button.addEventListener('mousedown', (event) => event.preventDefault());
+      button.onclick = () => {
+        const action = button.dataset.assignmentCommand;
+        const editor = $('#assignmentQuestion');
+        editor.focus();
+        if (action === 'code') formatCodeBlock(editor);
+        else if (action === 'action:link') {
+          const url = prompt('Paste a web link starting with https://');
+          if (url && /^https?:\/\//i.test(url)) document.execCommand('createLink', false, url);
+        } else if (action === 'action:table') {
+          const rows = Math.max(1, Math.min(12, Number(prompt('Number of rows (1–12)', '3')) || 0));
+          const cols = Math.max(1, Math.min(8, Number(prompt('Number of columns (1–8)', '3')) || 0));
+          if (rows && cols) {
+            const table = `<table><thead><tr>${Array.from({ length: cols }, (_, i) => `<th>Column ${i + 1}</th>`).join('')}</tr></thead><tbody>${Array.from({ length: rows }, () => `<tr>${Array.from({ length: cols }, () => '<td><br></td>').join('')}</tr>`).join('')}</tbody></table><p><br></p>`;
+            document.execCommand('insertHTML', false, table);
+          }
+        } else {
+          const [command, value] = action.split(':');
+          document.execCommand(command, false, value || null);
+        }
+      };
+    });
+    let saving = false;
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      if (saving) return;
+      saving = true;
+      const saveButton = form.querySelector('[type="submit"]');
+      saveButton.disabled = true;
+      const values = Object.fromEntries(new FormData(form));
+      try {
+        await api('assignments', { method: 'POST', data: { ...values, question: $('#assignmentQuestion').innerHTML, pairReview: form.elements.pairReview.checked } });
+        toast(assignment ? 'Assignment updated.' : 'Assignment posted.');
+        await setView('assignments');
+      } catch (error) {
+        toast(error.message);
+      } finally {
+        saving = false;
+        saveButton.disabled = false;
+      }
+    };
+    return;
+  }
+
+  renderAssignmentSubmissions(panel, assignments, String(options.assignmentId || assignments[0]?.id || ''));
+}
+
+async function renderAssignmentSubmissions(panel, assignments, initialAssignmentId) {
+  panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">STUDENT LEARNING SERVICE</div><h2>Submissions & grading</h2></div></div><form id="assignmentSubmissionFilters" class="assignment-submission-filters"><label class="field-label">ASSIGNMENT<select name="assignmentId" ${assignments.length ? '' : 'disabled'}>${assignments.length ? assignments.map((item) => `<option value="${item.id}" ${String(item.id) === initialAssignmentId ? 'selected' : ''}>${escapeHtml(item.title)}</option>`).join('') : '<option value="">No assignments yet</option>'}</select></label><label class="field-label">FIND A STUDENT<input name="search" type="search" placeholder="Name, email, or matric number"></label><button class="button button-dark" type="submit">Search</button></form><p id="assignmentSubmissionCount" class="student-notice"></p><div id="assignmentSubmissionRows" class="assignment-submission-list"></div><nav id="assignmentSubmissionPager" class="assignment-submission-pager" aria-label="Submission pages"></nav>`;
+  const filters = $('#assignmentSubmissionFilters');
+  const rowsPanel = $('#assignmentSubmissionRows');
+  const pager = $('#assignmentSubmissionPager');
+  let page = 1;
+  const pageSize = 25;
+  const loadSubmissions = async () => {
+    const assignmentId = filters.elements.assignmentId.value;
+    if (!assignmentId) {
+      rowsPanel.innerHTML = '<div class="empty-state">Create an assignment before reviewing submissions.</div>';
+      pager.innerHTML = '';
+      $('#assignmentSubmissionCount').textContent = '';
+      return;
+    }
+    try {
+      const data = await api('assignment-submissions', { query: { assignmentId, page, pageSize, search: filters.elements.search.value.trim() } });
+      const totalPages = Math.max(1, Math.ceil(data.total / data.pageSize));
+      $('#assignmentSubmissionCount').textContent = `Showing ${data.total ? (page - 1) * pageSize + 1 : 0}–${Math.min(page * pageSize, data.total)} of ${data.total} submissions`;
+      rowsPanel.innerHTML = data.submissions.length ? data.submissions.map((submission) => `<article class="assignment-submission-card"><div class="eyebrow">${escapeHtml(submission.studentName)} · ${escapeHtml(submission.matricNumber || 'NO MATRIC')} · ${escapeHtml(submission.department || 'NO DEPARTMENT')} · ${escapeHtml(submission.level || 'NO LEVEL')} · ${escapeHtml(submission.submittedAt)}</div><p class="student-notice">${escapeHtml(submission.email)}${submission.phone ? ` · ${escapeHtml(submission.phone)}` : ''}</p><div class="student-admin-work">${submission.body}</div><form class="student-grade-form" data-submission="${submission.id}"><div class="field-row"><label class="field-label">SCORE / 100<input type="number" name="score" min="0" max="100" step="0.01" value="${submission.score === null ? '' : escapeHtml(submission.score)}" required></label><label class="field-label">FEEDBACK<textarea name="feedback" rows="3">${escapeHtml(submission.feedback || '')}</textarea></label></div><button class="plain-link" type="submit">Save grade →</button></form></article>`).join('') : '<div class="empty-state">No submissions match this assignment and search.</div>';
+      pager.innerHTML = data.total > pageSize ? `<button type="button" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>← Previous</button><span>Page ${page} of ${totalPages}</span><button type="button" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>Next →</button>` : '';
+      pager.querySelectorAll('[data-page]').forEach((button) => {
+        button.onclick = () => { page = Number(button.dataset.page); loadSubmissions(); };
+      });
+      rowsPanel.querySelectorAll('.student-grade-form').forEach((gradeForm) => {
+        gradeForm.onsubmit = async (event) => {
+          event.preventDefault();
+          const save = gradeForm.querySelector('[type="submit"]');
+          save.disabled = true;
+          try {
+            await api('student-grade', { method: 'POST', data: { submissionId: gradeForm.dataset.submission, score: gradeForm.elements.score.value, feedback: gradeForm.elements.feedback.value } });
+            toast('Grade saved.');
+            await loadSubmissions();
+          } catch (error) {
+            toast(error.message);
+            save.disabled = false;
+          }
+        };
+      });
+    } catch (error) {
+      rowsPanel.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+      pager.innerHTML = '';
+    }
+  };
+  filters.onsubmit = (event) => { event.preventDefault(); page = 1; loadSubmissions(); };
+  filters.elements.assignmentId.onchange = () => { page = 1; loadSubmissions(); };
+  loadSubmissions();
+}
+
+async function setView(view, options = {}) {
   // Swap the Studio's content panel while preserving the shared sidebar and page shell.
   document
     .querySelectorAll('.side-link')
@@ -790,10 +1014,27 @@ async function setView(view) {
   $('#bottomPanels').classList.toggle('hidden', view !== 'overview');
   $('#stats').classList.toggle('hidden', !['overview', 'writing', 'audience'].includes(view));
   $('#detailPanel').classList.toggle('hidden', view === 'overview');
-  $('#newPost').classList.toggle('hidden', !['overview', 'writing'].includes(view));
+  $('#newPost').classList.toggle('hidden', view !== 'overview');
   const titles = {
     overview: ['Your studio.', 'A little space to make things that matter.'],
     writing: ['Your writing.', 'Every idea, from first draft to published piece.'],
+    'writing-create': ['Create writing.', 'Shape an idea into a story.'],
+    assignments: [
+      'Manage student assignments.',
+      'Browse and update assignment prompts.',
+    ],
+    'assignment-create': [
+      'Create assignment.',
+      'Write a new prompt or update an existing assignment.',
+    ],
+    'assignment-submissions': [
+      'Submissions & grading.',
+      'Find student work, review it, and record grades.',
+    ],
+    'student-activity': [
+      'Student activity.',
+      'A readable timeline of important actions in the student service.',
+    ],
     audience: ['Your community.', 'A growing circle of curious, thoughtful people.'],
     comments: ['Reader comments.', 'Review comments before they appear beneath your writing.'],
     messages: ['Contact messages.', 'Read and reply to messages sent through your contact form.'],
@@ -814,25 +1055,55 @@ async function setView(view) {
     speaking: ['Speaking page content.', 'Edit the public speaking page.'],
     settings: ['Site settings.', 'Your public profile, links, and content backup.'],
   };
-  $('#viewTitle').textContent = titles[view][0];
+  $('#viewTitle').textContent =
+    view === 'assignment-create' && options.assignmentId ? 'Edit assignment.' : titles[view][0];
   $('#viewSubtitle').textContent = titles[view][1];
   const panel = $('#detailPanel');
-  if (view === 'writing') {
-    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">THE NOTEBOOK</div><h2>All writing</h2></div><button class="plain-link" id="viewNew">＋ New article</button><button class="plain-link" id="exportArticles">Download backup ↓</button></div><div class="detail-list">${articles.length ? articles.map((article) => `<div class="detail-row"><span>${escapeHtml(article.title)} <small> · ${escapeHtml(article.category)}</small></span><span><small>${article.status.toUpperCase()} · ${escapeHtml(article.date)}</small> <button class="plain-link edit-article" data-id="${article.id}">Edit</button></span></div>`).join('') : '<div class="empty-state">Your writing starts with one brave sentence.</div>'}</div>`;
-    $('#viewNew').onclick = () => openEditor();
+  if (view === 'writing-create') {
+    if (articleEditorSuspended) resumeArticleEditor();
+    else openEditor();
+  } else if (view === 'writing') {
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">THE NOTEBOOK</div><h2>All writing</h2></div><button class="plain-link" id="viewNew">＋ New article</button><button class="plain-link" id="exportArticles">Download backup ↓</button></div><div class="detail-list" id="studioWritingList"></div>`;
+    const writingPager = createPagination($('#studioWritingList'), {
+      pageSize: 15,
+      label: 'Writing',
+    });
+    writingPager.setItems(
+      articles,
+      (article) =>
+        `<div class="detail-row"><span>${escapeHtml(article.title)} <small> · ${escapeHtml(article.category)}</small></span><span><small>${article.status.toUpperCase()} · ${escapeHtml(article.date)}</small> <button class="plain-link edit-article" data-id="${article.id}">Edit</button></span></div>`
+    );
+    $('#viewNew').onclick = () => setView('writing-create');
     $('#exportArticles').onclick = () => {
       downloadFile('alexore-articles.json', JSON.stringify(articles, null, 2), 'application/json');
       toast('Article backup downloaded.');
     };
-    panel
-      .querySelectorAll('.edit-article')
-      .forEach(
-        (button) =>
-          (button.onclick = () =>
-            openEditor(articles.find((article) => String(article.id) === button.dataset.id)))
+    panel.onclick = (event) => {
+      const button = event.target.closest('.edit-article');
+      if (button) openEditor(articles.find((article) => String(article.id) === button.dataset.id));
+    };
+  } else if (['assignments', 'assignment-create', 'assignment-submissions'].includes(view)) {
+    await renderAssignmentStudioView(view, panel, options);
+  } else if (view === 'student-activity') {
+    const result = await api('student-activity');
+    const activity = result.activity || [];
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">STUDENT LEARNING SERVICE</div><h2>Recent activity</h2></div><button class="plain-link" id="refreshStudentActivity" type="button">Refresh ↻</button></div><p>Account setup, submissions, reviews, grades, and forum activity appear here in plain language.</p><div id="studentActivityPages"></div>`;
+    if (activity.length) {
+      createPagination($('#studentActivityPages'), { pageSize: 25, label: 'Student activity' }).setItems(
+        activity,
+        (item) => `<article class="student-activity-entry"><span class="student-activity-mark" aria-hidden="true">•</span><div><b>${escapeHtml(item.description)}</b><time>${escapeHtml(item.createdAt)}</time></div></article>`
       );
+    } else {
+      $('#studentActivityPages').innerHTML = '<div class="empty-state">No student activity yet. New activity will appear here.</div>';
+    }
+    $('#refreshStudentActivity').onclick = () => setView('student-activity');
   } else if (view === 'audience') {
-    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">YOUR EMAIL COMMUNITY</div><h2>${subscribers.length} subscribers</h2></div><button class="plain-link" id="exportSubscribers">Download CSV ↓</button></div><p>Subscriber emails are stored in your site database. Connect an email service when you’re ready to send newsletters.</p>${subscribers.length ? `<div class="detail-list">${subscribers.map((row) => `<div class="detail-row">${escapeHtml(row.email)}<small>${escapeHtml(row.date)}</small></div>`).join('')}</div>` : '<div class="empty-state">Your first subscriber will appear here.</div>'}`;
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">YOUR EMAIL COMMUNITY</div><h2>${subscribers.length} subscribers</h2></div><button class="plain-link" id="exportSubscribers">Download CSV ↓</button></div><p>Subscriber emails are stored in your site database. Connect an email service when you’re ready to send newsletters.</p><div class="detail-list" id="studioAudienceList"></div>`;
+    createPagination($('#studioAudienceList'), { pageSize: 20, label: 'Subscribers' }).setItems(
+      subscribers,
+      (row) =>
+        `<div class="detail-row">${escapeHtml(row.email)}<small>${escapeHtml(row.date)}</small></div>`
+    );
     $('#exportSubscribers').onclick = () => {
       const csv =
         'email\r\n' + subscribers.map((row) => `"${row.email.replaceAll('"', '""')}"`).join('\r\n');
@@ -868,7 +1139,7 @@ async function setView(view) {
         })
     );
   } else if (view === 'messages') {
-    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">CONTACT INBOX</div><h2>${contactMessages.filter((message) => message.status === 'new').length} unread · ${contactMessages.length} total</h2></div></div><p>Messages sent through your public contact form appear here. Reply directly from your email app.</p>${contactMessagesLoadError ? '<div class="empty-state">The inbox is unavailable. Check that the database account can create tables, then refresh Studio.</div>' : contactMessages.length ? `<div class="detail-list">${contactMessages.map((message) => `<article class="moderation-comment"><div class="moderation-comment-head"><span><b>${escapeHtml(message.name)}</b> · <a href="mailto:${encodeURIComponent(message.email)}">${escapeHtml(message.email)}</a></span><small>${escapeHtml(message.status.toUpperCase())} · ${escapeHtml(message.date)}</small></div><h3>${escapeHtml(message.subject)}</h3><p class="contact-inbox-message">${escapeHtml(message.message).replace(/\r?\n/g, '<br>')}</p><div class="moderation-comment-actions"><a class="plain-link" href="mailto:${encodeURIComponent(message.email)}?subject=${encodeURIComponent(`Re: ${message.subject}`)}">Reply by email ↗</a>${message.status === 'new' ? `<button class="plain-link mark-message-read" data-id="${message.id}">Mark as read</button>` : ''}</div></article>`).join('')}</div>` : '<div class="empty-state">No messages yet. New contact form messages will appear here.</div>'}`;
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">CONTACT INBOX</div><h2>${contactMessages.filter((message) => message.status === 'new').length} unread · ${contactMessages.length} total</h2></div></div><p>Messages sent through your public contact form appear here. Reply directly from your email app.</p>${contactMessagesLoadError ? '<div class="empty-state">The inbox is temporarily unavailable. Please try again later.</div>' : contactMessages.length ? `<div class="detail-list">${contactMessages.map((message) => `<article class="moderation-comment"><div class="moderation-comment-head"><span><b>${escapeHtml(message.name)}</b> · <a href="mailto:${encodeURIComponent(message.email)}">${escapeHtml(message.email)}</a></span><small>${escapeHtml(message.status.toUpperCase())} · ${escapeHtml(message.date)}</small></div><h3>${escapeHtml(message.subject)}</h3><p class="contact-inbox-message">${escapeHtml(message.message).replace(/\r?\n/g, '<br>')}</p><div class="moderation-comment-actions"><a class="plain-link" href="mailto:${encodeURIComponent(message.email)}?subject=${encodeURIComponent(`Re: ${message.subject}`)}">Reply by email ↗</a>${message.status === 'new' ? `<button class="plain-link mark-message-read" data-id="${message.id}">Mark as read</button>` : ''}</div></article>`).join('')}</div>` : '<div class="empty-state">No messages yet. New contact form messages will appear here.</div>'}`;
     panel.querySelectorAll('.mark-message-read').forEach(
       (button) =>
         (button.onclick = async () => {
@@ -1119,7 +1390,7 @@ async function setView(view) {
       }
     };
   } else if (view === 'settings') {
-    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">MAKE IT YOURS</div><h2>Public profile & links</h2></div></div><p>Update your homepage introduction, ways to connect, and social links. Edit the full About page from the Page Content section.</p><form id="settingsForm" class="settings-form"><label class="field-label">HOMEPAGE INTRODUCTION<textarea name="home_intro" rows="2" placeholder="Notes on work, money, becoming, and conversations that matter.">${escapeHtml(settings.home_intro || '')}</textarea></label><label class="field-label">WAYS TO CONNECT INTRODUCTION<textarea name="offers_intro" rows="2">${escapeHtml(settings.offers_intro || 'From the page to the stage to the classroom — here are a few ways we can connect.')}</textarea></label><label class="field-label">CONTACT FORM EMAIL DESTINATION<input name="contact_delivery_email" type="email" value="${escapeHtml(settings.contact_delivery_email || '')}" placeholder="you@example.com"><small class="field-help">Prepared for email delivery. Messages currently appear in Studio; email forwarding needs a mail service connection.</small></label><label class="field-label">ARTICLE AUTO-SAVE<select name="editor_autosave_minutes"><option value="0" ${Number(settings.editor_autosave_minutes) === 0 ? 'selected' : ''}>Off</option><option value="5" ${Number(settings.editor_autosave_minutes ?? 5) === 5 ? 'selected' : ''}>Every 5 minutes</option><option value="10" ${Number(settings.editor_autosave_minutes) === 10 ? 'selected' : ''}>Every 10 minutes</option><option value="15" ${Number(settings.editor_autosave_minutes) === 15 ? 'selected' : ''}>Every 15 minutes</option></select></label><div class="settings-grid">${[
+    panel.innerHTML = `<div class="panel-head"><div><div class="eyebrow">MAKE IT YOURS</div><h2>Public profile & links</h2></div></div><p>Update your homepage introduction, ways to connect, and social links. Edit the full About page from the Page Content section.</p><form id="settingsForm" class="settings-form"><label class="field-label">HOMEPAGE INTRODUCTION<textarea name="home_intro" rows="2" placeholder="Notes on work, money, becoming, and conversations that matter.">${escapeHtml(settings.home_intro || '')}</textarea></label><label class="field-label">WAYS TO CONNECT INTRODUCTION<textarea name="offers_intro" rows="2">${escapeHtml(settings.offers_intro || 'From the page to the stage to the classroom — here are a few ways we can connect.')}</textarea></label><label class="field-label">CONTACT FORM EMAIL DESTINATION<input name="contact_delivery_email" type="email" value="${escapeHtml(settings.contact_delivery_email || '')}" placeholder="you@example.com"><small class="field-help">Prepared for email delivery. Messages currently appear in Studio; email forwarding needs a mail service connection.</small></label><label class="field-label">PUBLIC SITE URL<input name="public_site_url" type="url" value="${escapeHtml(settings.public_site_url || '')}" placeholder="https://alexore.com"><small class="field-help">Used by the student subdomain to link back to your published articles.</small></label><label class="field-label">ARTICLE AUTO-SAVE<select name="editor_autosave_minutes"><option value="0" ${Number(settings.editor_autosave_minutes) === 0 ? 'selected' : ''}>Off</option><option value="5" ${Number(settings.editor_autosave_minutes ?? 5) === 5 ? 'selected' : ''}>Every 5 minutes</option><option value="10" ${Number(settings.editor_autosave_minutes) === 10 ? 'selected' : ''}>Every 10 minutes</option><option value="15" ${Number(settings.editor_autosave_minutes) === 15 ? 'selected' : ''}>Every 15 minutes</option></select></label><div class="settings-grid">${[
       ['x', 'X'],
       ['medium', 'Medium'],
       ['substack', 'Substack'],
@@ -1175,7 +1446,15 @@ async function setView(view) {
 
 document
   .querySelectorAll('[data-view]')
-  .forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
+  .forEach((button) =>
+    button.addEventListener('click', () => {
+      const nextView = button.dataset.view;
+      const editorOpen = !$('#editorPage').classList.contains('hidden');
+      if (editorOpen && nextView === 'writing-create') return;
+      if (editorOpen) suspendArticleEditor();
+      setView(nextView);
+    })
+  );
 document
   .querySelectorAll('[data-go]')
   .forEach((button) => button.addEventListener('click', () => setView(button.dataset.go)));

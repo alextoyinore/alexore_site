@@ -5,6 +5,8 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $host = $_SERVER['HTTP_HOST'] ?? '';
@@ -39,6 +41,16 @@ function respond(int $status, array $payload): never
   exit();
 }
 
+set_exception_handler(static function (Throwable $error): void {
+  $route = preg_replace('/[^a-z0-9_-]/i', '', (string) ($_GET['route'] ?? 'unknown'));
+  error_log('alexore API exception on route ' . $route . ': ' . $error->getMessage());
+  if (!headers_sent()) {
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+  }
+  echo json_encode(['error' => 'We could not complete your request. Please try again.']);
+});
+
 function body_json(): array
 {
   $data = json_decode(file_get_contents('php://input') ?: '', true);
@@ -70,7 +82,8 @@ function comment_highlight_color(string $value): string
 
 function sanitize_comment_html(string $html): string
 {
-  $allowedTags = '<p><div><br><strong><b><em><i><u><ul><ol><li><blockquote><a><span><mark>';
+  $allowedTags =
+    '<p><div><h2><h3><h4><br><strong><b><em><i><u><s><del><code><pre><ul><ol><li><blockquote><a><span><mark><table><thead><tbody><tfoot><tr><th><td>';
   $html = strip_tags($html, $allowedTags);
   $sanitized = preg_replace_callback(
     '~</?([a-z][a-z0-9]*)\b[^>]*>~i',
@@ -192,15 +205,14 @@ if (is_file($configPath)) {
     ];
     if (in_array('', $environmentConfig, true)) {
       respond(503, [
-        'error' =>
-          'Backend setup is incomplete. Configure a private config file or the ALEXORE environment variables.',
+        'error' => 'This service is temporarily unavailable. Please try again later.',
       ]);
     }
   }
   $config = $environmentConfig;
 }
 if (!is_array($config)) {
-  respond(503, ['error' => 'Backend configuration is invalid.']);
+  respond(503, ['error' => 'This service is temporarily unavailable. Please try again later.']);
 }
 
 try {
@@ -212,7 +224,7 @@ try {
 } catch (Throwable $error) {
   error_log('alexore database connection failed: ' . $error->getMessage());
   respond(503, [
-    'error' => 'The database is not available. Check the private cPanel configuration.',
+    'error' => 'This service is temporarily unavailable. Please try again later.',
   ]);
 }
 
@@ -239,6 +251,8 @@ if (!$contentSchemaReady || !$engagementSchemaReady || !$contactSchemaReady) {
 
 $route = $_GET['route'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+require_once __DIR__ . '/students/routes.php';
 
 if ($route === 'images' && $method === 'GET') {
   require_admin();
@@ -472,8 +486,7 @@ if ($route === 'messages' && $method === 'GET') {
   require_admin();
   if (!$contactSchemaReady) {
     respond(503, [
-      'error' =>
-        'The contact message inbox is unavailable. Import api/schema.sql with this database selected.',
+      'error' => 'The contact message inbox is temporarily unavailable. Please try again later.',
     ]);
   }
   $rows = $pdo
@@ -488,8 +501,7 @@ if ($route === 'messages' && $method === 'POST') {
   require_csrf();
   if (!$contactSchemaReady) {
     respond(503, [
-      'error' =>
-        'The contact message inbox is unavailable. Import api/schema.sql with this database selected.',
+      'error' => 'The contact message inbox is temporarily unavailable. Please try again later.',
     ]);
   }
   $input = body_json();
@@ -504,7 +516,7 @@ if ($route === 'messages' && $method === 'POST') {
 if ($route === 'comments' && $method === 'GET') {
   if (!$engagementSchemaReady) {
     respond(503, [
-      'error' => 'Comments are unavailable. Import api/schema.sql with this database selected.',
+      'error' => 'Comments are temporarily unavailable. Please try again later.',
     ]);
   }
   if (($_GET['include'] ?? '') === 'all') {
@@ -535,7 +547,7 @@ if ($route === 'comments' && $method === 'GET') {
 if ($route === 'comments' && $method === 'POST') {
   if (!$engagementSchemaReady) {
     respond(503, [
-      'error' => 'Comments are unavailable. Import api/schema.sql with this database selected.',
+      'error' => 'Comments are temporarily unavailable. Please try again later.',
     ]);
   }
   $input = body_json();
@@ -614,7 +626,7 @@ if ($route === 'comments' && $method === 'POST') {
 if ($route === 'like' && $method === 'GET') {
   if (!$engagementSchemaReady) {
     respond(503, [
-      'error' => 'Likes are unavailable. Import api/schema.sql with this database selected.',
+      'error' => 'Likes are temporarily unavailable. Please try again later.',
     ]);
   }
   $slug = trim((string) ($_GET['slug'] ?? ''));
@@ -643,7 +655,7 @@ if ($route === 'like' && $method === 'GET') {
 if ($route === 'like' && $method === 'POST') {
   if (!$engagementSchemaReady) {
     respond(503, [
-      'error' => 'Likes are unavailable. Import api/schema.sql with this database selected.',
+      'error' => 'Likes are temporarily unavailable. Please try again later.',
     ]);
   }
   $input = body_json();
@@ -682,8 +694,7 @@ if ($route === 'like' && $method === 'POST') {
 if ($route === 'content' && $method === 'GET') {
   if (!$contentSchemaReady) {
     respond(503, [
-      'error' =>
-        'The content library table is unavailable. Import api/schema.sql with this database selected.',
+      'error' => 'The content library is temporarily unavailable. Please try again later.',
     ]);
   }
   $admin = !empty($_SESSION['alexore_admin']) && ($_GET['include'] ?? '') === 'all';
@@ -716,8 +727,7 @@ if ($route === 'content' && $method === 'GET') {
 if ($route === 'content-item' && $method === 'GET') {
   if (!$contentSchemaReady) {
     respond(503, [
-      'error' =>
-        'The content library table is unavailable. Import api/schema.sql with this database selected.',
+      'error' => 'The content library is temporarily unavailable. Please try again later.',
     ]);
   }
   $statement = $pdo->prepare(
@@ -733,8 +743,7 @@ if ($route === 'content-item' && $method === 'GET') {
 if ($route === 'content' && $method === 'POST') {
   if (!$contentSchemaReady) {
     respond(503, [
-      'error' =>
-        'The content library table is unavailable. Import api/schema.sql with this database selected.',
+      'error' => 'The content library is temporarily unavailable. Please try again later.',
     ]);
   }
   require_admin();
@@ -957,7 +966,7 @@ if ($route === 'subscribers' && $method === 'GET') {
 if ($route === 'settings' && $method === 'GET') {
   $rows = $pdo
     ->query(
-      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('intro','home_intro','about_intro','about_detail','about_hero_title','about_hero_emphasis','about_section_title','about_story_continued','about_point1_title','about_point1_body','about_point2_title','about_point2_body','about_point3_title','about_point3_body','about_point4_title','about_point4_body','about_bottom_title','about_bottom_body','offers_intro','x','medium','substack','linkedin','youtube','products_heading','products_intro','products_section_heading','products_section_body','book_status','book_card_title','book_card_description','book_hero_title','book_lead','book_section_title','book_section_body','framework_status','framework_card_title','framework_card_description','framework_hero_title','framework_lead','framework_section_title','framework_section_body','media_hero_title','media_lead','media_section_title','media_section_body','media_bottom_title','media_bottom_body','speaking_hero_title','speaking_lead','speaking_section_title','speaking_section_body','speaking_bottom_title','speaking_bottom_body','editor_autosave_minutes','contact_delivery_email')",
+      "SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('intro','home_intro','about_intro','about_detail','about_hero_title','about_hero_emphasis','about_section_title','about_story_continued','about_point1_title','about_point1_body','about_point2_title','about_point2_body','about_point3_title','about_point3_body','about_point4_title','about_point4_body','about_bottom_title','about_bottom_body','offers_intro','x','medium','substack','linkedin','youtube','products_heading','products_intro','products_section_heading','products_section_body','book_status','book_card_title','book_card_description','book_hero_title','book_lead','book_section_title','book_section_body','framework_status','framework_card_title','framework_card_description','framework_hero_title','framework_lead','framework_section_title','framework_section_body','media_hero_title','media_lead','media_section_title','media_section_body','media_bottom_title','media_bottom_body','speaking_hero_title','speaking_lead','speaking_section_title','speaking_section_body','speaking_bottom_title','speaking_bottom_body','editor_autosave_minutes','contact_delivery_email','public_site_url')",
     )
     ->fetchAll();
   $settings = [];
@@ -979,6 +988,17 @@ if ($route === 'settings' && $method === 'POST') {
       respond(422, ['error' => 'Enter a valid contact delivery email address.']);
     }
     $input['contact_delivery_email'] = $deliveryEmail;
+  }
+  if (array_key_exists('public_site_url', $input)) {
+    $siteUrl = rtrim(trim((string) $input['public_site_url']), '/');
+    $scheme = strtolower((string) parse_url($siteUrl, PHP_URL_SCHEME));
+    if (
+      $siteUrl !== '' &&
+      (!filter_var($siteUrl, FILTER_VALIDATE_URL) || !in_array($scheme, ['http', 'https'], true))
+    ) {
+      respond(422, ['error' => 'Enter a valid public site URL beginning with https://.']);
+    }
+    $input['public_site_url'] = $siteUrl;
   }
   $statement = $pdo->prepare(
     'INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value)',

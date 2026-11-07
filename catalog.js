@@ -1,3 +1,5 @@
+import { createPagination } from './pagination.js';
+
 // Public catalog renderer for books, products, videos, and podcast episodes.
 const esc = (value) =>
   String(value ?? '').replace(
@@ -13,6 +15,7 @@ const labels = { book: 'BOOK', product: 'DIGITAL PRODUCT', video: 'VIDEO', podca
 const icons = { book: '▤', product: '◇', video: '▶', podcast: '◖' };
 const list = document.querySelector('#catalogItems');
 const empty = document.querySelector('#catalogEmpty');
+const pager = createPagination(list, { pageSize: 12, label: 'Catalog' });
 
 function card(item) {
   const url = `content-item.html?slug=${encodeURIComponent(item.slug)}`;
@@ -43,7 +46,7 @@ fetch('api/index.php?route=content')
   .then((response) => response.json())
   .then(({ items = [] }) => {
     const results = items.filter((item) => kinds.includes(item.kind));
-    list.innerHTML = results.map(card).join('');
+    pager.setItems(results, card);
     empty?.classList.toggle('hidden', results.length > 0);
   })
   .catch(() => empty?.classList.remove('hidden'));

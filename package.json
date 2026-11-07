@@ -6,6 +6,8 @@
     "dev": "vite --host 127.0.0.1",
     "build": "node scripts/prepare-build.mjs && vite build",
     "build:xampp": "npm run build && node scripts/deploy-xampp.mjs",
+    "build:students": "npm run build && node scripts/prepare-student-service.mjs",
+    "build:students:xampp": "npm run build:students && node scripts/deploy-students-xampp.mjs",
     "format": "prettier --write \"**/*.{js,jsx,mjs,css,html,json,md,php}\"",
     "format:check": "prettier --check \"**/*.{js,jsx,mjs,css,html,json,md,php}\""
   },

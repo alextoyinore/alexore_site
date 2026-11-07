@@ -1,3 +1,5 @@
+import { createPagination } from './pagination.js';
+
 // Category/tag browse page: read the filter from the URL and render matching published items.
 const esc = (value) =>
   String(value ?? '').replace(
@@ -27,6 +29,7 @@ const labels = {
   video: 'VIDEO',
   podcast: 'PODCAST',
 };
+const pager = createPagination(list, { pageSize: 12, label: 'Catalog' });
 
 function card(item) {
   const article = item.kind === 'article';
@@ -73,7 +76,7 @@ Promise.all([
         ? tagsOf(item).some((itemTag) => itemTag.toLocaleLowerCase() === value.toLocaleLowerCase())
         : String(item.category || '').toLocaleLowerCase() === value.toLocaleLowerCase()
     );
-    list.innerHTML = results.map(card).join('');
+    pager.setItems(results, card);
     empty.classList.toggle('hidden', results.length > 0);
   })
   .catch(() => empty.classList.remove('hidden'));
