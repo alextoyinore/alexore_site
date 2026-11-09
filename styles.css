@@ -4283,7 +4283,7 @@ body {
 }
 
 .comment-item {
-  padding: 12px 0;
+  padding: 17px 0 19px;
   border-bottom: 1px solid #d9e4e5;
   background: transparent;
 }
@@ -4291,9 +4291,14 @@ body {
 .comment-item header {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 12px;
-  color: #66777b;
-  font-size: 11px;
+  color: #35474c;
+  font-size: 12px;
+}
+
+.comment-item header b {
+  font-weight: 650;
 }
 
 .comment-item time,
@@ -4303,34 +4308,87 @@ body {
   font-size: 10px;
 }
 
-.comment-body p {
-  margin: 9px 0 0;
-  color: #405057;
-  font-size: 13px;
-  line-height: 1.7;
+.comment-item time {
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+
+.comment-body {
+  max-width: 680px;
+  padding-top: 3px;
+  color: #35464b;
+  font: 400 15px/1.8 var(--sans);
   overflow-wrap: anywhere;
+}
+
+.comment-body p {
+  margin: 10px 0 0;
+  color: inherit;
+  font: inherit;
+}
+
+.comment-body h2,
+.comment-body h3,
+.comment-body h4 {
+  margin: 16px 0 6px;
+  color: #263a40;
+  font: 500 18px/1.35 var(--serif);
+}
+
+.comment-body h3 {
+  font-size: 16px;
+}
+
+.comment-body h4 {
+  font-size: 15px;
 }
 
 .comment-body ul,
 .comment-body ol {
-  margin: 9px 0;
+  margin: 10px 0 4px;
   padding-left: 22px;
-  color: #405057;
-  font-size: 13px;
-  line-height: 1.7;
+  color: inherit;
+  font: inherit;
+}
+
+.comment-body li {
+  margin: 0 0 5px;
 }
 
 .comment-body blockquote {
-  margin: 12px 0;
-  padding: 2px 0 2px 14px;
-  border-left: 2px solid #9dbfc3;
-  color: #586b70;
+  margin: 15px 0 8px;
+  padding: 5px 0 5px 16px;
+  border-left: 2px solid #82abb3;
+  color: #53676d;
+  font: italic 17px/1.7 var(--serif);
+}
+
+.comment-body pre {
+  margin: 12px 0 4px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  border: 1px solid #dce5e5;
+  border-radius: 4px;
+  background: #f2f5f3;
+  color: #344247;
+  font: 13px/1.65 var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.comment-body code {
+  padding: 0.08em 0.3em;
+  border-radius: 3px;
+  background: #edf2f0;
+  color: #31535b;
+  font: 0.9em var(--mono);
 }
 
 .comment-body a {
-  color: #336f89;
+  color: #28647a;
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
 .article-body [data-align='left'],
@@ -4352,6 +4410,22 @@ body {
 .comment-body mark[data-highlight] {
   padding: 0.02em 0.08em;
   border-radius: 0.12em;
+  color: inherit;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.student-admin-work img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 16px auto;
+  border-radius: 7px;
+}
+
+.student-admin-work mark[data-highlight] {
+  padding: 0.04em 0.12em;
+  border-radius: 0.14em;
   color: inherit;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;

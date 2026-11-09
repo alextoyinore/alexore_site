@@ -16,6 +16,19 @@ let csrf = '',
   dashboard = null,
   view = 'assignments';
 
+function resumeAlexoreSignIn() {
+  const params = new URLSearchParams(location.search);
+  const state = params.get('sso_state') || '';
+  const returnTo = params.get('return') || '';
+  if (!/^[a-f0-9]{64}$/.test(state) || !returnTo) return false;
+  const start = new URL('api/index.php', location.href);
+  start.searchParams.set('route', 'alexore-sso-start');
+  start.searchParams.set('state', state);
+  start.searchParams.set('return', returnTo);
+  location.assign(start.href);
+  return true;
+}
+
 async function api(route, { method = 'GET', data } = {}) {
   const headers = { Accept: 'application/json' };
   if (data) headers['Content-Type'] = 'application/json';
@@ -60,19 +73,21 @@ const editorIcons = {
   redo: '<path d="m15 14 5-5-5-5m5 5h-9a7 7 0 000 14h2"/>',
   clear: '<path d="m4 7 13 13M17 7 4 20M4 4h16"/>',
   table: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="M3 10h18M9 4v16M15 4v16"/>',
+  highlight: '<path d="m4 16 8-11 5 4-8 11H4zM3 20h18M14 7l4 4"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m21 15-5-5L5 20"/>',
   code: '<path d="m8 8-4 4 4 4m8-8 4 4-4 4m-5-10-2 12"/>',
   rule: '<path d="M3 12h18"/>',
 };
 function editorButton(icon, label, attrs) {
   return `<button type="button" title="${label}" aria-label="${label}" ${attrs}><svg viewBox="0 0 24 24" aria-hidden="true">${editorIcons[icon]}</svg></button>`;
 }
-function editorMarkup(id, label) {
+function editorMarkup(id, label, allowImages = false) {
   return `<div class="student-editor"><div class="student-editor-toolbar" role="toolbar" aria-label="${label} formatting">
     ${editorButton('undo','Undo','data-cmd="undo"')}${editorButton('redo','Redo','data-cmd="redo"')}<i aria-hidden="true"></i>
     ${editorButton('bold','Bold','data-cmd="bold"')}${editorButton('italic','Italic','data-cmd="italic"')}${editorButton('underline','Underline','data-cmd="underline"')}${editorButton('strike','Strikethrough','data-cmd="strikeThrough"')}
     <button type="button" title="Heading" aria-label="Heading" data-block="h2"><svg viewBox="0 0 24 24" aria-hidden="true">${editorIcons.heading}</svg></button><button type="button" title="Paragraph" aria-label="Paragraph" data-block="p"><svg viewBox="0 0 24 24" aria-hidden="true">${editorIcons.paragraph}</svg></button>
     ${editorButton('bullet','Bulleted list','data-cmd="insertUnorderedList"')}${editorButton('ordered','Numbered list','data-cmd="insertOrderedList"')}${editorButton('quote','Quote','data-cmd="formatBlock" data-value="blockquote"')}${editorButton('code','Code block','data-action="code"')}<i aria-hidden="true"></i>
-    ${editorButton('left','Align left','data-cmd="justifyLeft"')}${editorButton('center','Align center','data-cmd="justifyCenter"')}${editorButton('right','Align right','data-cmd="justifyRight"')}${editorButton('link','Insert link','data-action="link"')}${editorButton('table','Insert table','data-action="table"')}${editorButton('rule','Divider','data-cmd="insertHorizontalRule"')}${editorButton('clear','Clear formatting','data-cmd="removeFormat"')}
+    ${editorButton('left','Align left','data-cmd="justifyLeft"')}${editorButton('center','Align center','data-cmd="justifyCenter"')}${editorButton('right','Align right','data-cmd="justifyRight"')}${editorButton('highlight','Highlight text','data-action="highlight"')}${editorButton('link','Insert link','data-action="link"')}${allowImages ? editorButton('image','Add image','data-action="image"') : ''}${editorButton('table','Insert table','data-action="table"')}${editorButton('rule','Divider','data-cmd="insertHorizontalRule"')}${editorButton('clear','Clear formatting','data-cmd="removeFormat"')}
   </div><div id="${id}" class="student-editor-body" contenteditable="true" role="textbox" aria-multiline="true" aria-label="${label}" data-placeholder="Start writing here…"><p><br></p></div></div>`;
 }
 function dateLabel(value) {
@@ -84,7 +99,7 @@ function dateLabel(value) {
 }
 function renderAssignments() {
   const assignments = dashboard.assignments || [];
-  mainPanel.innerHTML = `<div class="student-section-heading"><div><div class="eyebrow">YOUR COURSEWORK</div><h2>Assignments</h2></div><span>${assignments.filter((a) => a.submissionId).length} submitted</span></div>${assignments.length ? `<div class="student-assignment-list">${assignments.map((a) => `<article class="student-panel student-assignment"><div class="student-assignment-top"><div><div class="eyebrow">${a.pairReview == 1 ? 'PAIR REVIEW ENABLED' : 'INDIVIDUAL ASSIGNMENT'} · ${esc(a.status.toUpperCase())}</div><h3>${esc(a.title)}</h3></div><span class="student-status ${a.submissionId ? 'is-submitted' : ''}">${a.submissionId ? 'SUBMITTED' : 'NOT SUBMITTED'}</span></div><div class="student-question">${a.question}</div><div class="student-submission-meta"><span>Submitted: ${esc(dateLabel(a.submittedAt))}</span>${a.dueAt ? `<span>Due: ${esc(dateLabel(a.dueAt))}</span>` : ''}${a.score !== null ? `<strong>Instructor score: ${esc(a.score)} / 100</strong>` : ''}${a.peerScore !== null && a.peerScore !== undefined ? `<strong>Peer score: ${Number(a.peerScore).toFixed(1)} / 100</strong>` : ''}</div>${a.instructorFeedback ? `<div class="student-feedback"><b>Instructor feedback</b><div>${a.instructorFeedback}</div></div>` : ''}${a.status === 'open' ? `<button class="button button-dark student-write" type="button" data-assignment="${a.id}">${a.submissionId ? 'Update submission' : 'Submit assignment'} <span>↗</span></button><form class="student-submission-form hidden" data-assignment="${a.id}"><label class="field-label">YOUR RESPONSE</label>${editorMarkup(`submissionEditor${a.id}`, 'Assignment response')}<p class="student-message" role="status"></p><button class="button button-dark" type="submit">Submit work <span>↗</span></button><button class="plain-link student-cancel-write" type="button">Cancel</button></form>${a.submissionId ? `<details class="student-own-work"><summary>View your submitted work</summary><div>${a.submissionBody}</div></details>` : ''}` : '<p class="student-notice">This assignment is closed for submissions.</p>'}</article>`).join('')}</div>` : '<div class="student-panel student-empty">No assignments are available yet. Check back soon.</div>'}`;
+  mainPanel.innerHTML = `<div class="student-section-heading"><div><div class="eyebrow">YOUR COURSEWORK</div><h2>Assignments</h2></div><span>${assignments.filter((a) => a.submissionId).length} submitted</span></div>${assignments.length ? `<div class="student-assignment-list">${assignments.map((a) => `<article class="student-panel student-assignment"><div class="student-assignment-top"><div><div class="eyebrow">${a.pairReview == 1 ? 'PAIR REVIEW ENABLED' : 'INDIVIDUAL ASSIGNMENT'} · ${esc(a.status.toUpperCase())}</div><h3>${esc(a.title)}</h3></div><span class="student-status ${a.submissionId ? 'is-submitted' : ''}">${a.submissionId ? 'SUBMITTED' : 'NOT SUBMITTED'}</span></div><div class="student-question">${a.question}</div><div class="student-submission-meta"><span>Submitted: ${esc(dateLabel(a.submittedAt))}</span>${a.dueAt ? `<span>Due: ${esc(dateLabel(a.dueAt))}</span>` : ''}${a.score !== null ? `<strong>Instructor score: ${esc(a.score)} / 100</strong>` : ''}${a.peerScore !== null && a.peerScore !== undefined ? `<strong>Peer score: ${Number(a.peerScore).toFixed(1)} / 100</strong>` : ''}</div>${a.instructorFeedback ? `<div class="student-feedback"><b>Instructor feedback</b><div>${a.instructorFeedback}</div></div>` : ''}${a.status === 'open' ? `<button class="button button-dark student-write" type="button" data-assignment="${a.id}">${a.submissionId ? 'Update submission' : 'Submit assignment'} <span>↗</span></button><form class="student-submission-form hidden" data-assignment="${a.id}"><label class="field-label">YOUR RESPONSE</label>${editorMarkup(`submissionEditor${a.id}`, 'Assignment response', true)}<p class="student-message" role="status"></p><button class="button button-dark" type="submit">Submit work <span>↗</span></button><button class="plain-link student-cancel-write" type="button">Cancel</button></form>${a.submissionId ? `<details class="student-own-work"><summary>View your submitted work</summary><div>${a.submissionBody}</div></details>` : ''}` : '<p class="student-notice">This assignment is closed for submissions.</p>'}</article>`).join('')}</div>` : '<div class="student-panel student-empty">No assignments are available yet. Check back soon.</div>'}`;
   const peerFeedback = dashboard.peerFeedback || [];
   if (peerFeedback.length)
     mainPanel.insertAdjacentHTML(
@@ -113,12 +128,84 @@ function renderView() {
   else renderForum();
 }
 function bindEditorToolbar(root) {
+  const savedRanges = new WeakMap();
   root.querySelectorAll('.student-editor-toolbar button').forEach((button) => {
-    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('mousedown', (event) => {
+      const editor = button.closest('.student-editor').querySelector('[contenteditable]');
+      const selection = window.getSelection();
+      if (selection?.rangeCount) {
+        const range = selection.getRangeAt(0);
+        if (editor.contains(range.commonAncestorContainer)) savedRanges.set(editor, range.cloneRange());
+      }
+      event.preventDefault();
+    });
     button.addEventListener('click', () => {
       const editor = button.closest('.student-editor').querySelector('[contenteditable]');
       editor.focus();
       if (button.dataset.block) document.execCommand('formatBlock', false, button.dataset.block);
+      else if (button.dataset.action === 'highlight') {
+        const color = prompt('Highlight color in #RRGGBB format', '#fff2a8');
+        if (color && /^#[\da-f]{6}$/i.test(color.trim())) {
+          document.execCommand('styleWithCSS', false, true);
+          document.execCommand('hiliteColor', false, color.trim());
+        }
+      }
+      else if (button.dataset.action === 'image') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/jpeg,image/png,image/webp,image/gif';
+        input.addEventListener('change', async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          const status = button.closest('form')?.querySelector('.student-message');
+          if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+            if (status) message(status, 'Choose a JPG, PNG, GIF, or WebP image.', true);
+            return;
+          }
+          if (file.size > 8 * 1024 * 1024) {
+            if (status) message(status, 'Choose an image smaller than 8 MB.', true);
+            return;
+          }
+          button.disabled = true;
+          if (status) message(status, 'Uploading image…');
+          try {
+            const data = new FormData();
+            data.append('image', file);
+            const response = await fetch('api/index.php?route=student-upload-image', {
+              method: 'POST',
+              headers: { Accept: 'application/json', 'X-CSRF-Token': csrf },
+              credentials: 'same-origin',
+              body: data,
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'The image upload failed.');
+            const image = document.createElement('img');
+            image.src = result.url;
+            image.alt = prompt('Describe this image for readers using screen readers') || '';
+            editor.focus();
+            const selection = window.getSelection();
+            const range = savedRanges.get(editor);
+            if (selection && range && editor.contains(range.commonAncestorContainer)) {
+              selection.removeAllRanges();
+              selection.addRange(range);
+              range.deleteContents();
+              range.insertNode(image);
+              range.setStartAfter(image);
+              range.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            } else {
+              editor.append(image);
+            }
+            if (status) message(status, 'Image added to your response.');
+          } catch (error) {
+            if (status) message(status, error.message, true);
+          } finally {
+            button.disabled = false;
+          }
+        });
+        input.click();
+      }
       else if (button.dataset.action === 'code') {
         document.execCommand('formatBlock', false, 'pre');
         const selection = window.getSelection();
@@ -201,6 +288,7 @@ async function refreshSession() {
     $('#studentAccount').classList.add('hidden');
     return;
   }
+  if (resumeAlexoreSignIn()) return;
   auth.classList.add('hidden');
   if (state.needsProfile || state.needsMatric) {
     gate.classList.remove('hidden');

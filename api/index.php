@@ -27,13 +27,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
 $sessionHost = strtolower((string) parse_url('http://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
-$sessionDomain = preg_match('/(^|\.)alexore\.com\.ng$/', $sessionHost) ? '.alexore.com.ng' : '';
+$scriptPath = strtolower((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+$reoSession = preg_match('/^(reo|students)\.alexore\.com\.ng$/', $sessionHost)
+  || preg_match('~/(students|reo)/api/index\.php$~', $scriptPath);
+session_name($reoSession ? 'REOSESSION' : 'ALEXORESESSION');
 session_set_cookie_params([
   'httponly' => true,
   'secure' => $secure,
   'samesite' => 'Lax',
   'path' => '/',
-  'domain' => $sessionDomain,
+  'domain' => '',
 ]);
 session_start();
 
@@ -83,14 +86,15 @@ function comment_highlight_color(string $value): string
   return sprintf('#%02x%02x%02x', ...$channels);
 }
 
-function sanitize_comment_html(string $html): string
+function sanitize_comment_html(string $html, bool $allowImages = false): string
 {
   $allowedTags =
-    '<p><div><h2><h3><h4><br><strong><b><em><i><u><s><del><code><pre><ul><ol><li><blockquote><a><span><mark><table><thead><tbody><tfoot><tr><th><td>';
+    '<p><div><h2><h3><h4><br><strong><b><em><i><u><s><del><code><pre><ul><ol><li><blockquote><a><span><mark><table><thead><tbody><tfoot><tr><th><td>' .
+    ($allowImages ? '<img>' : '');
   $html = strip_tags($html, $allowedTags);
   $sanitized = preg_replace_callback(
     '~</?([a-z][a-z0-9]*)\b[^>]*>~i',
-    static function (array $match): string {
+    static function (array $match) use ($allowImages): string {
       $rawTag = $match[0];
       $inputTag = strtolower($match[1]);
       $tag = $inputTag === 'div' ? 'p' : $inputTag;
@@ -103,7 +107,31 @@ function sanitize_comment_html(string $html): string
           return '';
         }
         $color = comment_highlight_color($styleMatch[1]);
-        return $color === '' ? '' : '<mark data-highlight="' . $color . '">';
+        return $color === '' ? '' : '<mark data-highlight="' . $color . '" style="background-color:' . $color . '">';
+      }
+      if ($inputTag === 'img') {
+        if (!$allowImages || $closing) return '';
+        if (!preg_match('/\bsrc\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+))/i', $rawTag, $srcMatch)) return '';
+        $src = html_entity_decode($srcMatch[1] ?: ($srcMatch[2] ?: ($srcMatch[3] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $url = parse_url($src);
+        $request = parse_url('http://' . (string) ($_SERVER['HTTP_HOST'] ?? ''));
+        $scriptPath = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+        $basePath = dirname(dirname($scriptPath));
+        if ($basePath === '/' || $basePath === '.') $basePath = '';
+        $expectedPath = rtrim($basePath, '/') . '/uploads/';
+        $filename = is_array($url) ? basename((string) ($url['path'] ?? '')) : '';
+        $sameHost = is_array($url) && is_array($request)
+          && strtolower((string) ($url['host'] ?? '')) === strtolower((string) ($request['host'] ?? ''))
+          && (int) ($url['port'] ?? 0) === (int) ($request['port'] ?? 0);
+        if (!$sameHost || !in_array(strtolower((string) ($url['scheme'] ?? '')), ['http', 'https'], true)
+          || isset($url['user']) || isset($url['pass']) || isset($url['query']) || isset($url['fragment'])
+          || !preg_match('/^[a-f0-9]{32}\.(jpg|png|webp|gif)$/i', $filename)
+          || (string) ($url['path'] ?? '') !== $expectedPath . $filename) return '';
+        $alt = '';
+        if (preg_match('/\balt\s*=\s*(?:"([^"]*)"|\'([^\']*)\')/i', $rawTag, $altMatch)) {
+          $alt = trim(strip_tags(html_entity_decode($altMatch[1] ?: ($altMatch[2] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        }
+        return '<img src="' . htmlspecialchars($src, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" alt="' . htmlspecialchars(mb_substr($alt, 0, 250), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">';
       }
       if ($tag === 'br') {
         return $closing ? '' : '<br>';
@@ -122,7 +150,7 @@ function sanitize_comment_html(string $html): string
           $colorValue = $styleMatch[1];
         }
         $color = comment_highlight_color($colorValue);
-        return $color === '' ? '<mark>' : '<mark data-highlight="' . $color . '">';
+        return $color === '' ? '<mark>' : '<mark data-highlight="' . $color . '" style="background-color:' . $color . '">';
       }
 
       if (in_array($tag, ['p', 'div'], true)) {
@@ -187,7 +215,7 @@ function require_member(): array
   $query->execute([(int) $memberId]);
   $member = $query->fetch();
   if (!$member) {
-    unset($_SESSION['alexore_member_id'], $_SESSION['alexore_member_source']);
+    unset($_SESSION['alexore_member_id']);
     respond(401, ['error' => 'Sign in to continue.']);
   }
   return $member;
@@ -272,6 +300,7 @@ $engagementSchemaReady =
   $tableExists($pdo, 'article_likes') && $tableExists($pdo, 'article_comments');
 $contactSchemaReady = $tableExists($pdo, 'contact_messages');
 $memberSchemaReady = $tableExists($pdo, 'site_members');
+$reoSsoSchemaReady = $tableExists($pdo, 'reo_alexore_sso_tickets') && $tableExists($pdo, 'site_member_reo_links');
 if (!$contentSchemaReady || !$engagementSchemaReady || !$contactSchemaReady || !$memberSchemaReady) {
   error_log('alexore database tables are missing; import api/schema.sql.');
 }
@@ -458,37 +487,16 @@ if ($route === 'auth' && $method === 'POST') {
 
 if ($route === 'member-auth' && $method === 'GET') {
   if (!$memberSchemaReady) respond(503, ['error' => 'Accounts are temporarily unavailable. Please import api/schema.sql.']);
-  if (empty($_SESSION['alexore_member_id']) && empty($_SESSION['alexore_sso_suppressed']) && !empty($_SESSION['ore_student_id'])) {
-    $studentQuery = $pdo->prepare('SELECT full_name,email FROM students WHERE id=? AND is_active=1 LIMIT 1');
-    $studentQuery->execute([(int) $_SESSION['ore_student_id']]);
-    $student = $studentQuery->fetch();
-    if ($student) {
-      $memberQuery = $pdo->prepare('SELECT id,is_active FROM site_members WHERE email=? LIMIT 1');
-      $memberQuery->execute([strtolower((string) $student['email'])]);
-      $member = $memberQuery->fetch();
-      if (!$member) {
-        $pdo->prepare('INSERT IGNORE INTO site_members(email,full_name) VALUES(?,?)')->execute([strtolower((string) $student['email']), $student['full_name']]);
-        $memberQuery->execute([strtolower((string) $student['email'])]);
-        $member = $memberQuery->fetch();
-      }
-      if ($member && (int) $member['is_active'] === 1) {
-        session_regenerate_id(true);
-        $_SESSION['alexore_member_id'] = (int) $member['id'];
-        $_SESSION['alexore_member_source'] = 'reo';
-        $_SESSION['alexore_sso_suppressed'] = false;
-        $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
-      }
-    }
-  }
   $member = null;
   if (!empty($_SESSION['alexore_member_id'])) {
     $memberQuery = $pdo->prepare('SELECT id,email,full_name AS fullName FROM site_members WHERE id=? AND is_active=1 LIMIT 1');
     $memberQuery->execute([(int) $_SESSION['alexore_member_id']]);
     $member = $memberQuery->fetch() ?: null;
-    if (!$member) unset($_SESSION['alexore_member_id'], $_SESSION['alexore_member_source']);
+    if (!$member) unset($_SESSION['alexore_member_id']);
   }
   if (empty($_SESSION['alexore_member_csrf'])) $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
-  respond(200, ['authenticated' => (bool) $member, 'user' => $member, 'csrf' => $_SESSION['alexore_member_csrf']]);
+  if (empty($_SESSION['alexore_reo_sso_state'])) $_SESSION['alexore_reo_sso_state'] = bin2hex(random_bytes(32));
+  respond(200, ['authenticated' => (bool) $member, 'user' => $member, 'csrf' => $_SESSION['alexore_member_csrf'], 'reoSsoState' => $_SESSION['alexore_reo_sso_state']]);
 }
 if ($route === 'member-auth' && $method === 'POST') {
   if (!$memberSchemaReady) respond(503, ['error' => 'Accounts are temporarily unavailable. Please import api/schema.sql.']);
@@ -496,10 +504,74 @@ if ($route === 'member-auth' && $method === 'POST') {
   $input = body_json();
   $action = (string) ($input['action'] ?? 'login');
   if ($action === 'logout') {
-    unset($_SESSION['alexore_member_id'], $_SESSION['alexore_member_source']);
-    $_SESSION['alexore_sso_suppressed'] = true;
+    unset($_SESSION['alexore_member_id']);
     $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
     respond(200, ['authenticated' => false]);
+  }
+  if ($action === 'reo-sso') {
+    if (!$reoSsoSchemaReady) respond(503, ['error' => 'Reo sign-in is not ready yet. Import the latest api/schema.sql.']);
+    $state = (string) ($input['state'] ?? '');
+    $ticket = (string) ($input['ticket'] ?? '');
+    if (!preg_match('/^[a-f0-9]{64}$/', $state) || empty($_SESSION['alexore_reo_sso_state']) || !hash_equals($_SESSION['alexore_reo_sso_state'], $state)) {
+      respond(403, ['error' => 'This Reo sign-in link expired. Start again from Alexore.']);
+    }
+    unset($_SESSION['alexore_reo_sso_state']);
+    if (!preg_match('/^[a-f0-9]{64}$/', $ticket)) respond(422, ['error' => 'Reo could not verify this sign-in. Please try again.']);
+
+    $pdo->beginTransaction();
+    try {
+      $ticketQuery = $pdo->prepare('SELECT t.student_id,s.email,s.full_name FROM reo_alexore_sso_tickets t JOIN students s ON s.id=t.student_id WHERE t.ticket_hash=? AND t.expires_at>NOW() AND s.is_active=1 FOR UPDATE');
+      $ticketQuery->execute([hash('sha256', $ticket)]);
+      $studentIdentity = $ticketQuery->fetch();
+      $pdo->prepare('DELETE FROM reo_alexore_sso_tickets WHERE ticket_hash=?')->execute([hash('sha256', $ticket)]);
+      if (!$studentIdentity) {
+        $pdo->commit();
+        respond(401, ['error' => 'This Reo sign-in link expired or was already used. Start again from Alexore.']);
+      }
+
+      $linkQuery = $pdo->prepare('SELECT member_id FROM site_member_reo_links WHERE student_id=? LIMIT 1');
+      $linkQuery->execute([(int) $studentIdentity['student_id']]);
+      $linked = $linkQuery->fetch();
+      if ($linked) {
+        $memberId = (int) $linked['member_id'];
+        $accountQuery = $pdo->prepare('SELECT id,is_active FROM site_members WHERE id=? LIMIT 1');
+        $accountQuery->execute([$memberId]);
+        $account = $accountQuery->fetch();
+      } else {
+        $accountQuery = $pdo->prepare('SELECT id,is_active,password_hash FROM site_members WHERE email=? LIMIT 1');
+        $accountQuery->execute([strtolower((string) $studentIdentity['email'])]);
+        $account = $accountQuery->fetch();
+        if ($account && (int) $account['is_active'] === 1 && !empty($account['password_hash']) && (int) ($_SESSION['alexore_member_id'] ?? 0) !== (int) $account['id']) {
+          $pdo->commit();
+          respond(409, ['error' => 'An Alexore account already uses this email. Sign in to Alexore first, then choose “Continue with Reo” again to link the accounts.']);
+        }
+        if (!$account) {
+          $pdo->prepare('INSERT INTO site_members(email,full_name,password_hash,last_login_at) VALUES(?,?,NULL,NOW())')->execute([strtolower((string) $studentIdentity['email']), mb_substr((string) $studentIdentity['full_name'], 0, 120)]);
+          $memberId = (int) $pdo->lastInsertId();
+        } else {
+          $memberId = (int) $account['id'];
+        }
+        if ((int) ($account['is_active'] ?? 1) !== 1) {
+          $pdo->commit();
+          respond(403, ['error' => 'This Alexore account is unavailable. Contact the site administrator.']);
+        }
+        $pdo->prepare('INSERT INTO site_member_reo_links(student_id,member_id) VALUES(?,?)')->execute([(int) $studentIdentity['student_id'], $memberId]);
+      }
+      if ((int) ($account['is_active'] ?? 1) !== 1) {
+        $pdo->commit();
+        respond(403, ['error' => 'This Alexore account is unavailable. Contact the site administrator.']);
+      }
+      $pdo->prepare('UPDATE site_members SET last_login_at=NOW() WHERE id=?')->execute([$memberId]);
+      $pdo->commit();
+    } catch (Throwable $error) {
+      if ($pdo->inTransaction()) $pdo->rollBack();
+      throw $error;
+    }
+    session_regenerate_id(true);
+    $_SESSION['alexore_member_id'] = $memberId;
+    $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
+    $member = require_member();
+    respond(200, ['authenticated' => true, 'user' => $member, 'csrf' => $_SESSION['alexore_member_csrf']]);
   }
   if (!empty($_SESSION['alexore_member_login_blocked_until']) && time() < (int) $_SESSION['alexore_member_login_blocked_until']) {
     respond(429, ['error' => 'Too many attempts. Wait a few minutes and try again.']);
@@ -546,8 +618,6 @@ if ($route === 'member-auth' && $method === 'POST') {
   }
   session_regenerate_id(true);
   $_SESSION['alexore_member_id'] = $memberId;
-  $_SESSION['alexore_member_source'] = 'password';
-  $_SESSION['alexore_sso_suppressed'] = false;
   $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
   $member = require_member();
   respond($action === 'register' ? 201 : 200, ['authenticated' => true, 'user' => $member, 'csrf' => $_SESSION['alexore_member_csrf']]);

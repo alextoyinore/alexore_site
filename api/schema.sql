@@ -167,6 +167,24 @@ CREATE TABLE IF NOT EXISTS students (
   INDEX idx_students_department_level (department, level)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- One-time Reo to Alexore sign-in handoffs and explicit account links.
+CREATE TABLE IF NOT EXISTS reo_alexore_sso_tickets (
+  ticket_hash CHAR(64) NOT NULL PRIMARY KEY,
+  student_id BIGINT UNSIGNED NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_reo_alexore_ticket_expiry (expires_at),
+  CONSTRAINT fk_reo_alexore_ticket_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS site_member_reo_links (
+  student_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+  member_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_site_member_reo_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  CONSTRAINT fk_site_member_reo_member FOREIGN KEY (member_id) REFERENCES site_members(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Add profile and assignment targeting fields to existing student databases.
 SET @has_student_phone = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='students' AND COLUMN_NAME='phone');
 SET @student_profile_sql = IF(@has_student_phone=0, 'ALTER TABLE students ADD COLUMN phone VARCHAR(30) NULL AFTER matric_number', 'SELECT 1');
@@ -193,7 +211,7 @@ CREATE TABLE IF NOT EXISTS assignments (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(240) NOT NULL,
   question MEDIUMTEXT NOT NULL,
-  department VARCHAR(120) NULL,
+  department TEXT NULL,
   level VARCHAR(40) NULL,
   status ENUM('open','closed') NOT NULL DEFAULT 'open',
   pair_review TINYINT(1) NOT NULL DEFAULT 0,
@@ -201,11 +219,11 @@ CREATE TABLE IF NOT EXISTS assignments (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_assignments_status (status, due_at),
-  INDEX idx_assignments_target (department, level, status, due_at)
+  INDEX idx_assignments_target (level, status, due_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET @has_assignment_department = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='assignments' AND COLUMN_NAME='department');
-SET @assignment_target_sql = IF(@has_assignment_department=0, 'ALTER TABLE assignments ADD COLUMN department VARCHAR(120) NULL AFTER question', 'SELECT 1');
+SET @assignment_target_sql = IF(@has_assignment_department=0, 'ALTER TABLE assignments ADD COLUMN department TEXT NULL AFTER question', 'SELECT 1');
 PREPARE assignment_target_statement FROM @assignment_target_sql;
 EXECUTE assignment_target_statement;
 DEALLOCATE PREPARE assignment_target_statement;
@@ -214,8 +232,18 @@ SET @assignment_target_sql = IF(@has_assignment_level=0, 'ALTER TABLE assignment
 PREPARE assignment_target_statement FROM @assignment_target_sql;
 EXECUTE assignment_target_statement;
 DEALLOCATE PREPARE assignment_target_statement;
+SET @assignment_target_index_has_department = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='assignments' AND INDEX_NAME='idx_assignments_target' AND COLUMN_NAME='department');
+SET @assignment_index_sql = IF(@assignment_target_index_has_department>0, 'DROP INDEX idx_assignments_target ON assignments', 'SELECT 1');
+PREPARE assignment_index_statement FROM @assignment_index_sql;
+EXECUTE assignment_index_statement;
+DEALLOCATE PREPARE assignment_index_statement;
+SET @assignment_department_is_text = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='assignments' AND COLUMN_NAME='department' AND DATA_TYPE IN ('text','mediumtext','longtext'));
+SET @assignment_department_sql = IF(@assignment_department_is_text=0, 'ALTER TABLE assignments MODIFY COLUMN department TEXT NULL', 'SELECT 1');
+PREPARE assignment_department_statement FROM @assignment_department_sql;
+EXECUTE assignment_department_statement;
+DEALLOCATE PREPARE assignment_department_statement;
 SET @has_assignment_target_index = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='assignments' AND INDEX_NAME='idx_assignments_target');
-SET @assignment_index_sql = IF(@has_assignment_target_index=0, 'CREATE INDEX idx_assignments_target ON assignments(department,level,status,due_at)', 'SELECT 1');
+SET @assignment_index_sql = IF(@has_assignment_target_index=0, 'CREATE INDEX idx_assignments_target ON assignments(level,status,due_at)', 'SELECT 1');
 PREPARE assignment_index_statement FROM @assignment_index_sql;
 EXECUTE assignment_index_statement;
 DEALLOCATE PREPARE assignment_index_statement;

@@ -24,12 +24,19 @@
       <button class="button button-dark" type="submit">Create account <span>↗</span></button>
       <p class="account-message" role="status" aria-live="polite"></p>
     </form>
+    <div class="account-reo-option">
+      <p>Are you a Reo student? Use your Reo account to create or access your Alexore account.</p>
+      <button class="button button-outline" type="button" data-reo-sso>Continue with Reo <span>↗</span></button>
+      <p class="account-message" role="status" aria-live="polite" data-reo-sso-message></p>
+    </div>
   </section>
   <section class="account-panel account-profile" id="accountProfile" hidden>
     <div class="eyebrow">YOUR ALEXORE ACCOUNT</div>
     <h2 id="accountProfileName"></h2>
     <p id="accountProfileEmail"></p>
-    <p>You can comment and like articles while you’re signed in. Reo student accounts are recognized automatically when you visit from the same browser.</p>
+    <p>Your Alexore account lets you comment on and like articles. Reo student accounts use a separate sign-in.</p>
+    <button class="button button-outline" type="button" data-reo-sso>Link or sign in with Reo</button>
+    <p class="account-message" role="status" aria-live="polite" data-reo-sso-message></p>
     <button class="button button-outline" type="button" id="accountLogout">Log out</button>
     <p class="account-message" role="status" aria-live="polite"></p>
   </section>

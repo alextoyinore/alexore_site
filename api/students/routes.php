@@ -94,12 +94,89 @@ foreach (
 }
 if (
   !$studentTablesReady &&
-  (str_starts_with((string) $route, 'student-') || $route === 'assignments')
+  (str_starts_with((string) $route, 'student-') || $route === 'assignments' || $route === 'alexore-sso-start')
 ) {
   error_log('Student Studio tables are not installed.');
   respond(503, [
     'error' => 'Student Studio is temporarily unavailable. Please try again later.',
   ]);
+}
+
+if ($route === 'student-upload-image' && $method === 'POST') {
+  require_student();
+  require_student_csrf();
+  $file = $_FILES['image'] ?? null;
+  if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) respond(422, ['error' => 'Choose an image to upload.']);
+  if (($file['size'] ?? 0) < 1 || ($file['size'] ?? 0) > 8 * 1024 * 1024 || !is_uploaded_file($file['tmp_name'] ?? '')) {
+    respond(422, ['error' => 'Images must be smaller than 8 MB.']);
+  }
+  $imageInfo = @getimagesize($file['tmp_name']);
+  $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+  $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
+  if (!$imageInfo || !isset($extensions[$mime]) || ($imageInfo['mime'] ?? '') !== $mime) {
+    respond(422, ['error' => 'Upload a JPG, PNG, GIF, or WebP image.']);
+  }
+  $uploadDirectory = dirname(__DIR__, 2) . '/uploads';
+  if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0755, true) && !is_dir($uploadDirectory)) {
+    respond(500, ['error' => 'The uploads folder could not be created.']);
+  }
+  $filename = bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
+  if (!move_uploaded_file($file['tmp_name'], $uploadDirectory . '/' . $filename)) {
+    respond(500, ['error' => 'The image could not be saved. Check uploads folder permissions.']);
+  }
+  $scriptPath = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+  $basePath = dirname(dirname($scriptPath));
+  if ($basePath === '/' || $basePath === '.') $basePath = '';
+  $scheme = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
+  respond(201, ['url' => $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim($basePath, '/') . '/uploads/' . $filename]);
+}
+
+if ($route === 'alexore-sso-start' && $method === 'GET') {
+  $state = (string) ($_GET['state'] ?? '');
+  $callback = (string) ($_GET['return'] ?? '');
+  if (!preg_match('/^[a-f0-9]{64}$/', $state)) respond(422, ['error' => 'Start again from the Alexore account page.']);
+  $callbackParts = parse_url($callback);
+  if (!is_array($callbackParts) || isset($callbackParts['user']) || isset($callbackParts['pass']) || isset($callbackParts['query']) || isset($callbackParts['fragment']) || isset($callbackParts['port'])) respond(400, ['error' => 'The Alexore return address is not allowed.']);
+  $callbackHost = strtolower((string) ($callbackParts['host'] ?? ''));
+  $callbackPath = (string) ($callbackParts['path'] ?? '');
+  $callbackIsLocal = in_array($callbackParts['scheme'] ?? '', ['http', 'https'], true)
+    && in_array($callbackHost, ['localhost', '127.0.0.1'], true)
+    && $callbackPath === '/alexore/account.html';
+  $callbackIsProduction = ($callbackParts['scheme'] ?? '') === 'https'
+    && in_array($callbackHost, ['alexore.com.ng', 'www.alexore.com.ng'], true)
+    && $callbackPath === '/account.html';
+  if (!$callbackIsLocal && !$callbackIsProduction) respond(400, ['error' => 'The Alexore return address is not allowed.']);
+  $studentId = filter_var($_SESSION['ore_student_id'] ?? null, FILTER_VALIDATE_INT);
+  $activeStudent = null;
+  if ($studentId) {
+    $activeQuery = $pdo->prepare('SELECT id FROM students WHERE id=? AND is_active=1 LIMIT 1');
+    $activeQuery->execute([(int) $studentId]);
+    $activeStudent = $activeQuery->fetch();
+  }
+  if (!$activeStudent) {
+    $host = strtolower((string) parse_url('http://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
+    if (in_array($host, ['localhost', '127.0.0.1'], true)) {
+      $studentPage = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://') . $host . '/students/index.html';
+    } else {
+      $studentPage = 'https://reo.alexore.com.ng/';
+    }
+    header('Location: ' . $studentPage . '?' . http_build_query(['sso_state' => $state, 'return' => $callback]));
+    http_response_code(303);
+    exit();
+  }
+  try {
+    $pdo->query('SELECT 1 FROM reo_alexore_sso_tickets LIMIT 0');
+  } catch (Throwable) {
+    respond(503, ['error' => 'Reo sign-in is not ready yet. Please import the latest api/schema.sql.']);
+  }
+  $ticket = bin2hex(random_bytes(32));
+  $pdo->prepare('INSERT INTO reo_alexore_sso_tickets(ticket_hash,student_id,expires_at) VALUES(?,?,DATE_ADD(NOW(), INTERVAL 5 MINUTE))')
+    ->execute([hash('sha256', $ticket), $studentId]);
+
+  $separator = str_contains($callback, '?') ? '&' : '?';
+  header('Location: ' . $callback . $separator . http_build_query(['reo_sso' => '1', 'ticket' => $ticket, 'state' => $state]));
+  http_response_code(303);
+  exit();
 }
 
 // Student accounts use a separate session namespace from the site administrator.
@@ -115,8 +192,6 @@ if ($route === 'student-auth' && $method === 'GET') {
   }
   if (!$student) {
     unset($_SESSION['ore_student_id'], $_SESSION['ore_student_matric']);
-  } else {
-    unset($_SESSION['alexore_sso_suppressed']);
   }
   if (empty($_SESSION['ore_student_csrf'])) {
     $_SESSION['ore_student_csrf'] = bin2hex(random_bytes(32));
@@ -135,9 +210,6 @@ if ($route === 'student-auth' && $method === 'POST') {
   if ($action === 'logout') {
     require_student_csrf();
     unset($_SESSION['ore_student_id'], $_SESSION['ore_student_matric'], $_SESSION['ore_student_department'], $_SESSION['ore_student_level']);
-    if (($_SESSION['alexore_member_source'] ?? '') === 'reo') {
-      unset($_SESSION['alexore_member_id'], $_SESSION['alexore_member_source'], $_SESSION['alexore_member_csrf']);
-    }
     $_SESSION['ore_student_csrf'] = bin2hex(random_bytes(32));
     respond(200, ['authenticated' => false]);
   }
@@ -496,8 +568,8 @@ if ($route === 'assignments' && $method === 'POST') {
   ) {
     respond(422, ['error' => 'Add an assignment title and question.']);
   }
-  if (mb_strlen($department) > 120 || mb_strlen($level) > 40 || count(array_filter($departments, static fn($value) => mb_strlen($value) > 120)) > 0) {
-    respond(422, ['error' => 'Department or level is too long.']);
+  if (mb_strlen($level) > 40) {
+    respond(422, ['error' => 'Level is too long.']);
   }
   $department = $department === '' ? null : $department;
   $level = $level === '' ? null : $level;
@@ -531,7 +603,7 @@ if ($route === 'student-submit' && $method === 'POST') {
   require_student_csrf();
   $input = body_json();
   $assignmentId = filter_var($input['assignmentId'] ?? null, FILTER_VALIDATE_INT);
-  $body = sanitize_comment_html((string) ($input['body'] ?? ''));
+  $body = sanitize_comment_html((string) ($input['body'] ?? ''), true);
   if (!$assignmentId || mb_strlen($body) > 100000 || trim(strip_tags($body)) === '') {
     respond(422, ['error' => 'Choose an assignment and write your submission.']);
   }

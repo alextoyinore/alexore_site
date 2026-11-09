@@ -390,6 +390,27 @@
   color: #a6b0ad;
   pointer-events: none;
 }
+.student-editor-body img,
+.student-own-work img,
+.student-peer-work img,
+.student-admin-work img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 16px auto;
+  border-radius: 7px;
+}
+.student-question mark[data-highlight],
+.student-editor-body mark[data-highlight],
+.student-own-work mark[data-highlight],
+.student-peer-work mark[data-highlight],
+.student-admin-work mark[data-highlight] {
+  padding: 0.04em 0.12em;
+  border-radius: 0.14em;
+  color: inherit;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
 .student-editor-body blockquote,
 .student-peer-work blockquote {
   border-left: 3px solid #9bc7bb;
@@ -522,16 +543,15 @@
 }
 .studio-assignment-card,
 .assignment-submission-card {
-  min-width: 0;
-  padding: 18px;
-  border: 1px solid #e5ebe8;
-  border-radius: 9px;
   background: #fff;
+  border-bottom: 1px solid #e5ebe8;
+  min-width: 0;
+  padding-bottom: 18px;
 }
 .studio-assignment-card {
-  display: flex;
+  display: column;
   align-items: center;
-  justify-content: space-between;
+  /* justify-content: space-between; */
   gap: 18px;
 }
 .studio-assignment-card h3 {
@@ -587,9 +607,8 @@
   grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.3fr) auto;
   align-items: center;
   gap: 12px;
-  padding: 16px;
-  border: 1px solid #e5ebe8;
-  border-radius: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5ebe8;
   background: #fff;
 }
 .student-record-card > div:first-child,
@@ -634,9 +653,8 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 16px;
-  padding: 16px;
-  border: 1px solid #e5ebe8;
-  border-radius: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e5ebe8;
   background: #fff;
 }
 .site-member-identity {
@@ -729,7 +747,6 @@
   padding: 14px;
   margin: 12px 0;
   background: #f7f8f6;
-  border-radius: 8px;
   line-height: 1.7;
 }
 .student-admin-submission {
@@ -743,7 +760,6 @@
 .student-grade-form {
   padding: 14px;
   background: #fafbf9;
-  border-radius: 9px;
 }
 #assignmentAdminForm input[name='pairReview'] {
   display: inline-block;

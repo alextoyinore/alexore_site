@@ -31,6 +31,72 @@ function showFormMessage(form, text, error = false) {
   node.classList.toggle('is-error', error);
 }
 
+function showReoMessage(text, error = false) {
+  accountRoot?.querySelectorAll('[data-reo-sso-message]').forEach((node) => {
+    node.textContent = text;
+    node.classList.toggle('is-error', error);
+  });
+}
+
+async function beginReoSignIn(button) {
+  button.disabled = true;
+  showReoMessage('Opening Reo sign-in…');
+  try {
+    authState = await window.alexoreMemberAuthPromise;
+    if (!authState?.reoSsoState) throw new Error('Could not prepare Reo sign-in. Refresh and try again.');
+    const localHost = ['localhost', '127.0.0.1'].includes(location.hostname);
+    const reoApi = localHost
+      ? `${location.protocol}//${location.host}/students/api/index.php`
+      : 'https://reo.alexore.com.ng/api/index.php';
+    const start = new URL(reoApi);
+    start.searchParams.set('route', 'alexore-sso-start');
+    start.searchParams.set('state', authState.reoSsoState);
+    start.searchParams.set('return', `${location.origin}${location.pathname}`);
+    location.assign(start.href);
+  } catch (error) {
+    showReoMessage(error.message, true);
+    button.disabled = false;
+  }
+}
+
+async function finishReoSignIn() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('reo_sso') !== '1') return;
+  const ticket = params.get('ticket') || '';
+  const state = params.get('state') || '';
+  params.delete('reo_sso');
+  params.delete('ticket');
+  params.delete('state');
+  const query = params.toString();
+  history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}${location.hash}`);
+  showReoMessage('Verifying your Reo account…');
+  try {
+    authState = await window.alexoreMemberAuthPromise;
+    const response = await fetch('api/index.php?route=member-auth', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-CSRF-Token': authState?.csrf || '',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({ action: 'reo-sso', ticket, state }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Reo sign-in could not be completed.');
+    authState = result;
+    renderAccountState(result);
+    showReoMessage('Your Reo account is now linked to Alexore.');
+    await window.refreshAlexoreMemberAuth?.();
+  } catch (error) {
+    showReoMessage(error.message, true);
+  }
+}
+
+accountRoot?.querySelectorAll('[data-reo-sso]').forEach((button) => {
+  button.addEventListener('click', () => beginReoSignIn(button));
+});
+
 async function submitAccountForm(form, action) {
   const button = form.querySelector('[type="submit"]');
   button.disabled = true;
@@ -100,5 +166,8 @@ accountRoot?.querySelector('#accountLogout')?.addEventListener('click', async (e
 });
 
 if (accountRoot) {
-  window.alexoreMemberAuthPromise?.then(renderAccountState);
+  window.alexoreMemberAuthPromise?.then((state) => {
+    renderAccountState(state);
+    finishReoSignIn();
+  });
 }
