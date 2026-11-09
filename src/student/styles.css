@@ -6,6 +6,9 @@
   color: #263538;
 }
 .student-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   max-width: 1320px;
   margin: auto;
   min-height: 70px;
@@ -13,6 +16,7 @@
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid #dfe6e3;
+  background: #f4f7fa;
 }
 .student-header .wordmark {
   display: flex;

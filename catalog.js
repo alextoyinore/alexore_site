@@ -38,7 +38,7 @@ function card(item) {
     item
   )
     .map((tag) => `<a href="browse.html?tag=${encodeURIComponent(tag)}">#${esc(tag)}</a>`)
-    .join('')}</div><a class="card-arrow" href="${url}">${action} ↗</a></article>`;
+    .join('')}</div><a class="card-arrow" href="${url}">${action}</a></article>`;
 }
 
 const kinds = (list?.dataset.kinds || '').split(',').filter(Boolean);

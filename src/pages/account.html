@@ -12,7 +12,8 @@
       <h2>Welcome back.</h2>
       <label>Email address<input type="email" name="email" autocomplete="email" maxlength="254" required></label>
       <label>Password<input type="password" name="password" autocomplete="current-password" minlength="10" maxlength="72" required></label>
-      <button class="button button-dark" type="submit">Log in <span>↗</span></button>
+      <button class="button button-dark" type="submit">Log in </button>
+      <button class="text-link account-recovery-link" id="showMemberRecovery" type="button">Forgot your password?</button>
       <p class="account-message" role="status" aria-live="polite"></p>
     </form>
     <form id="memberRegisterForm" class="account-form" hidden>
@@ -21,12 +22,29 @@
       <label>Email address<input type="email" name="email" autocomplete="email" maxlength="254" required></label>
       <label>Password<input type="password" name="password" autocomplete="new-password" minlength="10" maxlength="72" required></label>
       <small>Use at least 10 characters. Your email is kept private and is used for account sign-in and comment moderation.</small>
-      <button class="button button-dark" type="submit">Create account <span>↗</span></button>
+      <button class="button button-dark" type="submit">Create account </button>
+      <p class="account-message" role="status" aria-live="polite"></p>
+    </form>
+    <form id="memberResetRequestForm" class="account-form" hidden>
+      <h2>Reset your password.</h2>
+      <p>Enter your account email. If it matches an active account, we’ll send a one-use reset link.</p>
+      <label>Email address<input type="email" name="email" autocomplete="email" maxlength="254" required></label>
+      <button class="button button-dark" type="submit">Send reset link </button>
+      <button class="text-link account-recovery-link" type="button" data-member-back-login>Back to log in</button>
+      <p class="account-message" role="status" aria-live="polite"></p>
+    </form>
+    <form id="memberResetPasswordForm" class="account-form" hidden>
+      <h2>Choose a new password.</h2>
+      <input type="hidden" name="token">
+      <label>New password<input type="password" name="password" autocomplete="new-password" minlength="10" maxlength="72" required></label>
+      <label>Confirm new password<input type="password" name="confirmPassword" autocomplete="new-password" minlength="10" maxlength="72" required></label>
+      <small>Use at least 10 characters.</small>
+      <button class="button button-dark" type="submit">Save new password </button>
       <p class="account-message" role="status" aria-live="polite"></p>
     </form>
     <div class="account-reo-option">
       <p>Are you a Reo student? Use your Reo account to create or access your Alexore account.</p>
-      <button class="button button-outline" type="button" data-reo-sso>Continue with Reo <span>↗</span></button>
+      <button class="button button-outline" type="button" data-reo-sso>Continue with Reo </button>
       <p class="account-message" role="status" aria-live="polite" data-reo-sso-message></p>
     </div>
   </section>

@@ -128,11 +128,18 @@ CREATE TABLE IF NOT EXISTS site_members (
   email VARCHAR(254) NOT NULL UNIQUE,
   full_name VARCHAR(120) NOT NULL,
   password_hash VARCHAR(255) NULL,
+  session_version INT UNSIGNED NOT NULL DEFAULT 1,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_login_at DATETIME NULL,
   INDEX idx_site_members_name (full_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @has_member_session_version = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='site_members' AND COLUMN_NAME='session_version');
+SET @member_session_version_sql = IF(@has_member_session_version=0, 'ALTER TABLE site_members ADD COLUMN session_version INT UNSIGNED NOT NULL DEFAULT 1 AFTER password_hash', 'SELECT 1');
+PREPARE member_session_version_statement FROM @member_session_version_sql;
+EXECUTE member_session_version_statement;
+DEALLOCATE PREPARE member_session_version_statement;
 
 -- Add the admin display name on older databases without replacing usernames
 -- or password hashes.
@@ -156,6 +163,7 @@ CREATE TABLE IF NOT EXISTS students (
   full_name VARCHAR(160) NOT NULL,
   email VARCHAR(254) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
+  session_version INT UNSIGNED NOT NULL DEFAULT 1,
   matric_number VARCHAR(40) NULL UNIQUE,
   phone VARCHAR(30) NULL,
   department VARCHAR(120) NULL,
@@ -165,6 +173,32 @@ CREATE TABLE IF NOT EXISTS students (
   last_login_at DATETIME NULL,
   INDEX idx_students_name (full_name),
   INDEX idx_students_department_level (department, level)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @has_student_session_version = (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='students' AND COLUMN_NAME='session_version');
+SET @student_session_version_sql = IF(@has_student_session_version=0, 'ALTER TABLE students ADD COLUMN session_version INT UNSIGNED NOT NULL DEFAULT 1 AFTER password_hash', 'SELECT 1');
+PREPARE student_session_version_statement FROM @student_session_version_sql;
+EXECUTE student_session_version_statement;
+DEALLOCATE PREPARE student_session_version_statement;
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  token_hash CHAR(64) NOT NULL PRIMARY KEY,
+  account_type ENUM('member','student') NOT NULL,
+  account_id BIGINT UNSIGNED NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  used_at DATETIME NULL,
+  INDEX idx_password_reset_account (account_type, account_id, used_at),
+  INDEX idx_password_reset_expiry (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS password_reset_requests (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  ip_hash CHAR(64) NOT NULL,
+  email_hash CHAR(64) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_password_reset_ip_rate (ip_hash, created_at),
+  INDEX idx_password_reset_email_rate (email_hash, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- One-time Reo to Alexore sign-in handoffs and explicit account links.

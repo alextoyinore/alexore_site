@@ -1,13 +1,35 @@
 const accountRoot = document.querySelector('#accountRoot');
 const loginForm = accountRoot?.querySelector('#memberLoginForm');
 const registerForm = accountRoot?.querySelector('#memberRegisterForm');
+const resetRequestForm = accountRoot?.querySelector('#memberResetRequestForm');
+const resetPasswordForm = accountRoot?.querySelector('#memberResetPasswordForm');
 const formsPanel = accountRoot?.querySelector('#accountForms');
 const profilePanel = accountRoot?.querySelector('#accountProfile');
-const returnTo = new URLSearchParams(location.search).get('returnTo');
+const accountModeSwitch = accountRoot?.querySelector('.account-mode-switch');
+const initialParams = new URLSearchParams(location.search);
+const returnTo = initialParams.get('returnTo');
+let passwordResetToken = initialParams.get('password_reset') || '';
 let authState = null;
+
+if (passwordResetToken) {
+  initialParams.delete('password_reset');
+  history.replaceState(null, '', `${location.pathname}${initialParams.size ? `?${initialParams}` : ''}${location.hash}`);
+}
 
 function renderAccountState(state) {
   authState = state;
+  if (passwordResetToken) {
+    formsPanel.hidden = false;
+    profilePanel.hidden = true;
+    accountModeSwitch.hidden = true;
+    loginForm.hidden = true;
+    registerForm.hidden = true;
+    resetRequestForm.hidden = true;
+    resetPasswordForm.hidden = false;
+    resetPasswordForm.elements.token.value = passwordResetToken;
+    return;
+  }
+  accountModeSwitch.hidden = false;
   if (state.authenticated) {
     formsPanel.hidden = true;
     profilePanel.hidden = false;
@@ -19,11 +41,78 @@ function renderAccountState(state) {
     const mode = new URLSearchParams(location.search).get('mode') === 'register' ? 'register' : 'login';
     loginForm.hidden = mode !== 'login';
     registerForm.hidden = mode !== 'register';
+    resetRequestForm.hidden = true;
+    resetPasswordForm.hidden = true;
     accountRoot.querySelectorAll('[data-account-mode]').forEach((link) => {
       link.classList.toggle('is-active', link.dataset.accountMode === mode);
     });
   }
 }
+
+accountRoot?.querySelector('#showMemberRecovery')?.addEventListener('click', () => {
+  accountModeSwitch.hidden = true;
+  loginForm.hidden = true;
+  registerForm.hidden = true;
+  resetPasswordForm.hidden = true;
+  resetRequestForm.hidden = false;
+});
+accountRoot?.querySelector('[data-member-back-login]')?.addEventListener('click', () => {
+  resetRequestForm.hidden = true;
+  accountModeSwitch.hidden = false;
+  loginForm.hidden = false;
+  registerForm.hidden = true;
+});
+
+resetRequestForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const button = resetRequestForm.querySelector('[type="submit"]');
+  button.disabled = true;
+  showFormMessage(resetRequestForm, '');
+  try {
+    const response = await fetch('api/index.php?route=member-password-reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ action: 'request', email: resetRequestForm.elements.email.value }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'The reset request could not be completed.');
+    showFormMessage(resetRequestForm, result.message);
+  } catch (error) {
+    showFormMessage(resetRequestForm, error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+resetPasswordForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const button = resetPasswordForm.querySelector('[type="submit"]');
+  const password = resetPasswordForm.elements.password.value;
+  if (password !== resetPasswordForm.elements.confirmPassword.value) {
+    showFormMessage(resetPasswordForm, 'The passwords do not match.', true);
+    return;
+  }
+  button.disabled = true;
+  showFormMessage(resetPasswordForm, '');
+  try {
+    const response = await fetch('api/index.php?route=member-password-reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ action: 'reset', token: passwordResetToken, password }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'The password could not be changed.');
+    passwordResetToken = '';
+    resetPasswordForm.hidden = true;
+    accountModeSwitch.hidden = false;
+    loginForm.hidden = false;
+    showFormMessage(loginForm, result.message);
+  } catch (error) {
+    showFormMessage(resetPasswordForm, error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+});
 
 function showFormMessage(form, text, error = false) {
   const node = form.querySelector('.account-message');

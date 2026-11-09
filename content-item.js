@@ -60,7 +60,7 @@ function renderItem(item) {
     else if (/\.(mp4|webm|mov)(\?|$)/i.test(media))
       player = `<video class="catalog-media-player" src="${esc(media)}" controls playsinline></video>`;
     else
-      player = `<a class="button button-dark" href="${esc(media)}" target="_blank" rel="noopener">Watch video ↗</a>`;
+      player = `<a class="button button-dark" href="${esc(media)}" target="_blank" rel="noopener">Watch video</a>`;
   }
   if (item.kind === 'podcast' && media) {
     if (/\.(mp3|m4a|ogg|wav)(\?|$)/i.test(media))
@@ -69,7 +69,7 @@ function renderItem(item) {
       const embed = embedUrl(media, 'podcast');
       player = embed
         ? `<iframe class="catalog-media-player" src="${esc(embed)}" title="${esc(item.title)}" loading="lazy" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>`
-        : `<a class="button button-dark" href="${esc(media)}" target="_blank" rel="noopener">Listen to episode ↗</a>`;
+        : `<a class="button button-dark" href="${esc(media)}" target="_blank" rel="noopener">Listen to episode</a>`;
     }
   }
   const asset = safeUrl(item.assetUrl);
@@ -81,11 +81,11 @@ function renderItem(item) {
     );
   if (purchase)
     actions.push(
-      `<a class="button button-dark" href="${esc(purchase)}" target="_blank" rel="noopener">Get this item <span>↗</span></a>`
+      `<a class="button button-dark" href="${esc(purchase)}" target="_blank" rel="noopener">Get this item </a>`
     );
   else if (asset && (!item.price || Number(item.price) === 0))
     actions.push(
-      `<a class="button button-dark" href="${esc(asset)}" target="_blank" rel="noopener" download>Download file <span>↓</span></a>`
+      `<a class="button button-dark" href="${esc(asset)}" target="_blank" rel="noopener" download>Download file </a>`
     );
   const body = String(item.body || '')
     .split(/\n\s*\n/)
@@ -99,7 +99,7 @@ function renderItem(item) {
     .map((tag) => `<a href="browse.html?tag=${encodeURIComponent(tag)}">#${esc(tag)}</a>`)
     .join(
       ''
-    )}</div>${body ? `<div class="content-detail-copy">${body}</div>` : ''}<div class="content-detail-actions">${actions.join('')}</div><div class="article-bottom"><a href="${sectionUrl}">← More ${shopItem ? 'books & products' : 'videos & podcasts'}</a><a href="writing.html">Explore all writing ↗</a></div></article>`;
+    )}</div>${body ? `<div class="content-detail-copy">${body}</div>` : ''}<div class="content-detail-actions">${actions.join('')}</div><div class="article-bottom"><a href="${sectionUrl}">← More ${shopItem ? 'books & products' : 'videos & podcasts'}</a><a href="writing.html">Explore all writing</a></div></article>`;
 }
 
 if (!slug) root.innerHTML = '<div class="empty-state">This item is not available.</div>';

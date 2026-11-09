@@ -15,6 +15,18 @@ let csrf = '',
   student = null,
   dashboard = null,
   view = 'assignments';
+let passwordResetToken = new URLSearchParams(location.search).get('password_reset') || '';
+if (passwordResetToken) {
+  const params = new URLSearchParams(location.search);
+  params.delete('password_reset');
+  history.replaceState(null, '', `${location.pathname}${params.size ? `?${params}` : ''}${location.hash}`);
+  $('#studentLoginForm').classList.add('hidden');
+  $('#studentRegisterForm').classList.add('hidden');
+  $('#studentAuthToggle').classList.add('hidden');
+  $('#studentForgotPassword').classList.add('hidden');
+  $('#studentPasswordResetForm').classList.remove('hidden');
+  $('#studentPasswordResetForm').elements.token.value = passwordResetToken;
+}
 
 function resumeAlexoreSignIn() {
   const params = new URLSearchParams(location.search);
@@ -99,7 +111,7 @@ function dateLabel(value) {
 }
 function renderAssignments() {
   const assignments = dashboard.assignments || [];
-  mainPanel.innerHTML = `<div class="student-section-heading"><div><div class="eyebrow">YOUR COURSEWORK</div><h2>Assignments</h2></div><span>${assignments.filter((a) => a.submissionId).length} submitted</span></div>${assignments.length ? `<div class="student-assignment-list">${assignments.map((a) => `<article class="student-panel student-assignment"><div class="student-assignment-top"><div><div class="eyebrow">${a.pairReview == 1 ? 'PAIR REVIEW ENABLED' : 'INDIVIDUAL ASSIGNMENT'} · ${esc(a.status.toUpperCase())}</div><h3>${esc(a.title)}</h3></div><span class="student-status ${a.submissionId ? 'is-submitted' : ''}">${a.submissionId ? 'SUBMITTED' : 'NOT SUBMITTED'}</span></div><div class="student-question">${a.question}</div><div class="student-submission-meta"><span>Submitted: ${esc(dateLabel(a.submittedAt))}</span>${a.dueAt ? `<span>Due: ${esc(dateLabel(a.dueAt))}</span>` : ''}${a.score !== null ? `<strong>Instructor score: ${esc(a.score)} / 100</strong>` : ''}${a.peerScore !== null && a.peerScore !== undefined ? `<strong>Peer score: ${Number(a.peerScore).toFixed(1)} / 100</strong>` : ''}</div>${a.instructorFeedback ? `<div class="student-feedback"><b>Instructor feedback</b><div>${a.instructorFeedback}</div></div>` : ''}${a.status === 'open' ? `<button class="button button-dark student-write" type="button" data-assignment="${a.id}">${a.submissionId ? 'Update submission' : 'Submit assignment'} <span>↗</span></button><form class="student-submission-form hidden" data-assignment="${a.id}"><label class="field-label">YOUR RESPONSE</label>${editorMarkup(`submissionEditor${a.id}`, 'Assignment response', true)}<p class="student-message" role="status"></p><button class="button button-dark" type="submit">Submit work <span>↗</span></button><button class="plain-link student-cancel-write" type="button">Cancel</button></form>${a.submissionId ? `<details class="student-own-work"><summary>View your submitted work</summary><div>${a.submissionBody}</div></details>` : ''}` : '<p class="student-notice">This assignment is closed for submissions.</p>'}</article>`).join('')}</div>` : '<div class="student-panel student-empty">No assignments are available yet. Check back soon.</div>'}`;
+  mainPanel.innerHTML = `<div class="student-section-heading"><div><div class="eyebrow">YOUR COURSEWORK</div><h2>Assignments</h2></div><span>${assignments.filter((a) => a.submissionId).length} submitted</span></div>${assignments.length ? `<div class="student-assignment-list">${assignments.map((a) => `<article class="student-panel student-assignment"><div class="student-assignment-top"><div><div class="eyebrow">${a.pairReview == 1 ? 'PAIR REVIEW ENABLED' : 'INDIVIDUAL ASSIGNMENT'} · ${esc(a.status.toUpperCase())}</div><h3>${esc(a.title)}</h3></div><span class="student-status ${a.submissionId ? 'is-submitted' : ''}">${a.submissionId ? 'SUBMITTED' : 'NOT SUBMITTED'}</span></div><div class="student-question">${a.question}</div><div class="student-submission-meta"><span>Submitted: ${esc(dateLabel(a.submittedAt))}</span>${a.dueAt ? `<span>Due: ${esc(dateLabel(a.dueAt))}</span>` : ''}${a.score !== null ? `<strong>Instructor score: ${esc(a.score)} / 100</strong>` : ''}${a.peerScore !== null && a.peerScore !== undefined ? `<strong>Peer score: ${Number(a.peerScore).toFixed(1)} / 100</strong>` : ''}</div>${a.instructorFeedback ? `<div class="student-feedback"><b>Instructor feedback</b><div>${a.instructorFeedback}</div></div>` : ''}${a.status === 'open' ? `<button class="button button-dark student-write" type="button" data-assignment="${a.id}">${a.submissionId ? 'Update submission' : 'Submit assignment'} </button><form class="student-submission-form hidden" data-assignment="${a.id}"><label class="field-label">YOUR RESPONSE</label>${editorMarkup(`submissionEditor${a.id}`, 'Assignment response', true)}<p class="student-message" role="status"></p><button class="button button-dark" type="submit">Submit work </button><button class="plain-link student-cancel-write" type="button">Cancel</button></form>${a.submissionId ? `<details class="student-own-work"><summary>View your submitted work</summary><div>${a.submissionBody}</div></details>` : ''}` : '<p class="student-notice">This assignment is closed for submissions.</p>'}</article>`).join('')}</div>` : '<div class="student-panel student-empty">No assignments are available yet. Check back soon.</div>'}`;
   const peerFeedback = dashboard.peerFeedback || [];
   if (peerFeedback.length)
     mainPanel.insertAdjacentHTML(
@@ -109,16 +121,16 @@ function renderAssignments() {
 }
 function renderReviews() {
   const reviews = dashboard.reviews || [];
-  mainPanel.innerHTML = `<div class="student-section-heading"><div><div class="eyebrow">LEARN FROM EACH OTHER</div><h2>Pair review</h2></div></div><p class="student-notice">Reviews are assigned only for assignments your instructor has marked for pair review.</p>${reviews.length ? `<div class="student-assignment-list">${reviews.map((r) => `<article class="student-panel"><div class="eyebrow">${esc(r.assignmentTitle)} · WORK BY ${esc(r.authorName).toUpperCase()}</div><div class="student-peer-work">${r.submissionBody}</div>${r.reviewedAt ? `<div class="student-feedback"><b>Your peer review · ${esc(r.score)} / 100</b><div>${r.feedback}</div></div>` : `<form class="peer-review-form" data-review="${r.reviewId}"><label class="field-label">PEER SCORE (0–100)<input name="score" type="number" min="0" max="100" required></label><label class="field-label">COMMENTS FOR YOUR PEER</label>${editorMarkup(`reviewEditor${r.reviewId}`, 'Peer review comments')}<button class="button button-dark" type="submit">Send review <span>↗</span></button></form>`}</article>`).join('')}</div>` : '<div class="student-panel student-empty">No pair reviews are assigned yet. Reviews appear here when another student submits work for a pair-review assignment.</div>'}`;
+  mainPanel.innerHTML = `<div class="student-section-heading"><div><div class="eyebrow">LEARN FROM EACH OTHER</div><h2>Pair review</h2></div></div><p class="student-notice">Reviews are assigned only for assignments your instructor has marked for pair review.</p>${reviews.length ? `<div class="student-assignment-list">${reviews.map((r) => `<article class="student-panel"><div class="eyebrow">${esc(r.assignmentTitle)} · WORK BY ${esc(r.authorName).toUpperCase()}</div><div class="student-peer-work">${r.submissionBody}</div>${r.reviewedAt ? `<div class="student-feedback"><b>Your peer review · ${esc(r.score)} / 100</b><div>${r.feedback}</div></div>` : `<form class="peer-review-form" data-review="${r.reviewId}"><label class="field-label">PEER SCORE (0–100)<input name="score" type="number" min="0" max="100" required></label><label class="field-label">COMMENTS FOR YOUR PEER</label>${editorMarkup(`reviewEditor${r.reviewId}`, 'Peer review comments')}<button class="button button-dark" type="submit">Send review </button></form>`}</article>`).join('')}</div>` : '<div class="student-panel student-empty">No pair reviews are assigned yet. Reviews appear here when another student submits work for a pair-review assignment.</div>'}`;
   bindEditorToolbar(mainPanel);
 }
 function renderForum() {
   const posts = dashboard.forum || [];
-  mainPanel.innerHTML = `<div class="student-section-heading"><div><div class="eyebrow">LEARN TOGETHER</div><h2>Student forum</h2></div><button class="button button-dark" id="newForumTopic" type="button">＋ Start a topic</button></div><form id="forumTopicForm" class="student-panel student-form hidden"><label class="field-label">TOPIC TITLE<input name="title" maxlength="180" required></label><label class="field-label">MESSAGE</label>${editorMarkup('forumTopicEditor', 'Forum topic message')}<button class="button button-dark" type="submit">Post topic <span>↗</span></button><button class="plain-link" type="button" id="cancelForumTopic">Cancel</button></form>${posts.length ? `<div class="student-assignment-list">${posts.map((p) => `<article class="student-panel student-forum-post"><div class="eyebrow">${esc(p.authorName)} · ${esc(dateLabel(p.createdAt))}</div><h3>${esc(p.title)}</h3><div class="student-forum-body">${p.body}</div><div class="student-forum-comments">${(p.comments || []).map((c) => `<div class="student-forum-comment"><b>${esc(c.authorName)}</b><small>${esc(dateLabel(c.createdAt))}</small><div>${c.body}</div></div>`).join('')}</div><form class="forum-reply-form" data-post="${p.id}"><label class="field-label">REPLY</label>${editorMarkup(`replyEditor${p.id}`, 'Forum reply')}<button class="plain-link" type="submit">Post reply →</button></form></article>`).join('')}</div>` : '<div class="student-panel student-empty">No topics yet. Start a conversation with your classmates.</div>'}`;
+  mainPanel.innerHTML = `<div class="student-section-heading"><div><div class="eyebrow">LEARN TOGETHER</div><h2>Student forum</h2></div><button class="button button-dark" id="newForumTopic" type="button">＋ Start a topic</button></div><form id="forumTopicForm" class="student-panel student-form hidden"><label class="field-label">TOPIC TITLE<input name="title" maxlength="180" required></label><label class="field-label">MESSAGE</label>${editorMarkup('forumTopicEditor', 'Forum topic message')}<button class="button button-dark" type="submit">Post topic </button><button class="plain-link" type="button" id="cancelForumTopic">Cancel</button></form>${posts.length ? `<div class="student-assignment-list">${posts.map((p) => `<article class="student-panel student-forum-post"><div class="eyebrow">${esc(p.authorName)} · ${esc(dateLabel(p.createdAt))}</div><h3>${esc(p.title)}</h3><div class="student-forum-body">${p.body}</div><div class="student-forum-comments">${(p.comments || []).map((c) => `<div class="student-forum-comment"><b>${esc(c.authorName)}</b><small>${esc(dateLabel(c.createdAt))}</small><div>${c.body}</div></div>`).join('')}</div><form class="forum-reply-form" data-post="${p.id}"><label class="field-label">REPLY</label>${editorMarkup(`replyEditor${p.id}`, 'Forum reply')}<button class="plain-link" type="submit">Post reply →</button></form></article>`).join('')}</div>` : '<div class="student-panel student-empty">No topics yet. Start a conversation with your classmates.</div>'}`;
   bindEditorToolbar(mainPanel);
 }
 function renderProfile() {
-  mainPanel.innerHTML = `<div class="student-section-heading"><div><div class="eyebrow">ACCOUNT DETAILS</div><h2>My profile</h2></div></div><p>Keep your student details current so assignment targeting stays accurate.</p><form id="studentProfileEditForm" class="student-panel student-form"><label class="field-label">MATRIC NUMBER<input name="matricNumber" autocomplete="off" minlength="3" maxlength="40" value="${esc(student.matricNumber || '')}" required></label><label class="field-label">PHONE NUMBER<input name="phone" type="tel" autocomplete="tel" maxlength="30" value="${esc(student.phone || '')}" required></label><label class="field-label">DEPARTMENT<input name="department" autocomplete="organization-title" maxlength="120" value="${esc(student.department || '')}" required></label><label class="field-label">LEVEL<input name="level" list="studentProfileLevelOptions" maxlength="40" value="${esc(student.level || '')}" required><datalist id="studentProfileLevelOptions"><option value="100 Level"></option><option value="200 Level"></option><option value="300 Level"></option><option value="400 Level"></option><option value="500 Level"></option><option value="600 Level"></option><option value="700 Level"></option><option value="800 Level"></option></datalist></label><p class="student-message" role="status" aria-live="polite"></p><button class="button button-dark" type="submit">Save profile <span>↗</span></button></form>`;
+  mainPanel.innerHTML = `<div class="student-section-heading"><div><div class="eyebrow">ACCOUNT DETAILS</div><h2>My profile</h2></div></div><p>Keep your student details current so assignment targeting stays accurate.</p><form id="studentProfileEditForm" class="student-panel student-form"><label class="field-label">MATRIC NUMBER<input name="matricNumber" autocomplete="off" minlength="3" maxlength="40" value="${esc(student.matricNumber || '')}" required></label><label class="field-label">PHONE NUMBER<input name="phone" type="tel" autocomplete="tel" maxlength="30" value="${esc(student.phone || '')}" required></label><label class="field-label">DEPARTMENT<input name="department" autocomplete="organization-title" maxlength="120" value="${esc(student.department || '')}" required></label><label class="field-label">LEVEL<input name="level" list="studentProfileLevelOptions" maxlength="40" value="${esc(student.level || '')}" required><datalist id="studentProfileLevelOptions"><option value="100 Level"></option><option value="200 Level"></option><option value="300 Level"></option><option value="400 Level"></option><option value="500 Level"></option><option value="600 Level"></option><option value="700 Level"></option><option value="800 Level"></option></datalist></label><p class="student-message" role="status" aria-live="polite"></p><button class="button button-dark" type="submit">Save profile </button></form>`;
 }
 function renderView() {
   if (!dashboard) return;
@@ -281,6 +293,13 @@ async function refreshSession() {
   const state = await api('student-auth');
   csrf = state.csrf || '';
   student = state.student;
+  if (passwordResetToken) {
+    auth.classList.remove('hidden');
+    workspace.classList.add('hidden');
+    gate.classList.add('hidden');
+    $('#studentAccount').classList.add('hidden');
+    return;
+  }
   if (!state.authenticated) {
     auth.classList.remove('hidden');
     workspace.classList.add('hidden');
@@ -322,6 +341,73 @@ $('#studentAuthToggle').addEventListener('click', () => {
     ? 'Create your account with your full name and a supported email address.'
     : 'Sign in or create a student account to access assignments and your learning community.';
   message($('#studentAuthMessage'), '');
+  $('#studentForgotPassword').classList.toggle('hidden', registering);
+});
+$('#studentForgotPassword').addEventListener('click', () => {
+  $('#studentLoginForm').classList.add('hidden');
+  $('#studentRegisterForm').classList.add('hidden');
+  $('#studentPasswordRequestForm').classList.remove('hidden');
+  $('#studentAuthToggle').classList.add('hidden');
+  $('#studentForgotPassword').classList.add('hidden');
+  $('#studentAuthTitle').textContent = 'Reset your password.';
+  $('#studentAuthCopy').textContent = 'Enter your Reo account email and we’ll send a one-time reset link if it matches an active account.';
+  message($('#studentAuthMessage'), '');
+});
+$('#studentRecoveryBack').addEventListener('click', () => {
+  $('#studentPasswordRequestForm').classList.add('hidden');
+  $('#studentLoginForm').classList.remove('hidden');
+  $('#studentAuthToggle').classList.remove('hidden');
+  $('#studentForgotPassword').classList.remove('hidden');
+  $('#studentAuthTitle').textContent = 'Your learning studio.';
+  $('#studentAuthCopy').textContent = 'Sign in or create a student account to access assignments and your learning community.';
+  message($('#studentAuthMessage'), '');
+});
+$('#studentPasswordRequestForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const button = event.currentTarget.querySelector('[type="submit"]');
+  button.disabled = true;
+  message($('#studentAuthMessage'), '');
+  try {
+    const result = await api('student-password-reset', {
+      method: 'POST',
+      data: { action: 'request', email: event.currentTarget.elements.email.value },
+    });
+    message($('#studentAuthMessage'), result.message);
+  } catch (error) {
+    message($('#studentAuthMessage'), error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+});
+$('#studentPasswordResetForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const password = form.elements.password.value;
+  if (password !== form.elements.confirmPassword.value) {
+    message($('#studentAuthMessage'), 'The passwords do not match.', true);
+    return;
+  }
+  const button = form.querySelector('[type="submit"]');
+  button.disabled = true;
+  message($('#studentAuthMessage'), '');
+  try {
+    const result = await api('student-password-reset', {
+      method: 'POST',
+      data: { action: 'reset', token: passwordResetToken, password },
+    });
+    passwordResetToken = '';
+    form.classList.add('hidden');
+    $('#studentLoginForm').classList.remove('hidden');
+    $('#studentAuthToggle').classList.remove('hidden');
+    $('#studentForgotPassword').classList.remove('hidden');
+    $('#studentAuthTitle').textContent = 'Your learning studio.';
+    $('#studentAuthCopy').textContent = 'Sign in or create a student account to access assignments and your learning community.';
+    message($('#studentAuthMessage'), result.message);
+  } catch (error) {
+    message($('#studentAuthMessage'), error.message, true);
+  } finally {
+    button.disabled = false;
+  }
 });
 $('#studentLoginForm').addEventListener('submit', async (event) => {
   event.preventDefault();

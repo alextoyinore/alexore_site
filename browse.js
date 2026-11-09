@@ -58,7 +58,7 @@ function card(item) {
     item
   )
     .map((value) => `<a href="browse.html?tag=${encodeURIComponent(value)}">#${esc(value)}</a>`)
-    .join('')}</div><a class="card-arrow" href="${url}">${action} ↗</a></article>`;
+    .join('')}</div><a class="card-arrow" href="${url}">${action}</a></article>`;
 }
 
 Promise.all([

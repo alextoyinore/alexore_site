@@ -45,7 +45,7 @@
         </label>
         <button class="button button-dark" type="submit">
           Sign in
-          <span>↗</span>
+          
         </button>
       </form>
       <form id="studentRegisterForm" class="student-form hidden">
@@ -78,8 +78,20 @@
         </small>
         <button class="button button-dark" type="submit">
           Create account
-          <span>↗</span>
+          
         </button>
+      </form>
+      <button id="studentForgotPassword" class="text-link" type="button">Forgot your password?</button>
+      <form id="studentPasswordRequestForm" class="student-form hidden">
+        <label class="field-label">EMAIL ADDRESS<input name="email" type="email" autocomplete="email" required /></label>
+        <button class="button button-dark" type="submit">Send reset link </button>
+        <button class="text-link" id="studentRecoveryBack" type="button">Back to sign in</button>
+      </form>
+      <form id="studentPasswordResetForm" class="student-form hidden">
+        <input type="hidden" name="token" />
+        <label class="field-label">NEW PASSWORD<input name="password" type="password" autocomplete="new-password" minlength="10" maxlength="72" required /></label>
+        <label class="field-label">CONFIRM NEW PASSWORD<input name="confirmPassword" type="password" autocomplete="new-password" minlength="10" maxlength="72" required /></label>
+        <button class="button button-dark" type="submit">Save new password </button>
       </form>
       <p id="studentAuthMessage" class="student-message" role="status" aria-live="polite"></p>
       <button id="studentAuthToggle" class="text-link" type="button">
@@ -119,7 +131,7 @@
       <p id="matricMessage" class="student-message" role="status"></p>
       <button class="button button-dark" type="submit">
         Continue
-        <span>↗</span>
+        
       </button>
     </form>
   </section>

@@ -80,7 +80,7 @@ fetch('api/index.php?route=articles', { headers: { Accept: 'application/json' } 
     if (featuredPanel) {
       const art = featuredPanel.querySelector('.featured-art');
       const copy = featuredPanel.querySelector('.featured-copy');
-      copy.innerHTML = `<div class="post-meta"><a class="tag" href="browse.html?category=${encodeURIComponent(featured.category)}">${escapeHtml(featured.category).toUpperCase()}</a><span>${escapeHtml(featured.read).toUpperCase()}</span><span>✳</span><time>${escapeHtml(featured.date).toUpperCase()}</time></div><h3>${escapeHtml(featured.title)}</h3><p>${escapeHtml(featured.deck || '')}</p><a class="read-link" href="article.html?slug=${encodeURIComponent(featured.slug)}">Read the story <span>↗</span></a>`;
+      copy.innerHTML = `<div class="post-meta"><a class="tag" href="browse.html?category=${encodeURIComponent(featured.category)}">${escapeHtml(featured.category).toUpperCase()}</a><span>${escapeHtml(featured.read).toUpperCase()}</span><time>${escapeHtml(featured.date).toUpperCase()}</time></div><h3>${escapeHtml(featured.title)}</h3><p>${escapeHtml(featured.deck || '')}</p><a class="read-link" href="article.html?slug=${encodeURIComponent(featured.slug)}">Read the story </a>`;
       if (coverIsUsable(featured.coverImage)) {
         art.classList.add('has-cover');
         art.style.backgroundImage = `url(${JSON.stringify(featured.coverImage)})`;
@@ -93,7 +93,7 @@ fetch('api/index.php?route=articles', { headers: { Accept: 'application/json' } 
       const card = document.createElement('article');
       card.className = 'post-card';
       const target = `article.html?slug=${encodeURIComponent(article.slug)}`;
-      card.innerHTML = `<a href="${target}" aria-label="Read ${escapeHtml(article.title)}"><div class="post-art art-blue"><span>${escapeHtml(article.category).toUpperCase()}</span><b>✳</b><div class="blue-orbit"></div></div></a><div class="post-meta"><a class="tag" href="browse.html?category=${encodeURIComponent(article.category)}">${escapeHtml(article.category).toUpperCase()}</a><time>${escapeHtml(article.date).toUpperCase()}</time><span>${escapeHtml(article.read).toUpperCase()}</span></div><h3>${escapeHtml(article.title)}</h3><a class="card-arrow" href="${target}">Read article ↗</a>`;
+      card.innerHTML = `<a href="${target}" aria-label="Read ${escapeHtml(article.title)}"><div class="post-art art-blue"><span>${escapeHtml(article.category).toUpperCase()}</span><b>✳</b><div class="blue-orbit"></div></div></a><div class="post-meta"><a class="tag" href="browse.html?category=${encodeURIComponent(article.category)}">${escapeHtml(article.category).toUpperCase()}</a><time>${escapeHtml(article.date).toUpperCase()}</time><span>${escapeHtml(article.read).toUpperCase()}</span></div><h3>${escapeHtml(article.title)}</h3><a class="card-arrow" href="${target}">Read article</a>`;
       const artwork = card.querySelector('.post-art');
       if (coverIsUsable(article.coverImage)) {
         artwork.style.backgroundImage = `url(${JSON.stringify(article.coverImage)})`;

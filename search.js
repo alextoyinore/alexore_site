@@ -95,7 +95,7 @@ function card(item) {
     <div class="catalog-tags">${tagsOf(item)
       .map((tag) => `<a href="browse.html?tag=${encodeURIComponent(tag)}">#${esc(tag)}</a>`)
       .join('')}</div>
-    <a class="card-arrow" href="${url}">${action} ↗</a>
+    <a class="card-arrow" href="${url}">${action}</a>
   </article>`;
 }
 

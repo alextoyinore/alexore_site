@@ -211,13 +211,14 @@ function require_member(): array
   global $pdo;
   $memberId = filter_var($_SESSION['alexore_member_id'] ?? null, FILTER_VALIDATE_INT);
   if (!$memberId) respond(401, ['error' => 'Sign in to continue.']);
-  $query = $pdo->prepare('SELECT id,email,full_name AS fullName FROM site_members WHERE id=? AND is_active=1 LIMIT 1');
+  $query = $pdo->prepare('SELECT id,email,full_name AS fullName,session_version FROM site_members WHERE id=? AND is_active=1 LIMIT 1');
   $query->execute([(int) $memberId]);
   $member = $query->fetch();
-  if (!$member) {
-    unset($_SESSION['alexore_member_id']);
+  if (!$member || (int) ($_SESSION['alexore_member_session_version'] ?? 1) !== (int) $member['session_version']) {
+    unset($_SESSION['alexore_member_id'], $_SESSION['alexore_member_session_version']);
     respond(401, ['error' => 'Sign in to continue.']);
   }
+  unset($member['session_version']);
   return $member;
 }
 
@@ -268,6 +269,8 @@ if (is_file($configPath)) {
 if (!is_array($config)) {
   respond(503, ['error' => 'This service is temporarily unavailable. Please try again later.']);
 }
+require_once __DIR__ . '/mail.php';
+require_once __DIR__ . '/password-reset.php';
 
 try {
   $pdo = new PDO($config['dsn'], $config['db_user'], $config['db_password'], [
@@ -489,10 +492,14 @@ if ($route === 'member-auth' && $method === 'GET') {
   if (!$memberSchemaReady) respond(503, ['error' => 'Accounts are temporarily unavailable. Please import api/schema.sql.']);
   $member = null;
   if (!empty($_SESSION['alexore_member_id'])) {
-    $memberQuery = $pdo->prepare('SELECT id,email,full_name AS fullName FROM site_members WHERE id=? AND is_active=1 LIMIT 1');
+    $memberQuery = $pdo->prepare('SELECT id,email,full_name AS fullName,session_version FROM site_members WHERE id=? AND is_active=1 LIMIT 1');
     $memberQuery->execute([(int) $_SESSION['alexore_member_id']]);
     $member = $memberQuery->fetch() ?: null;
-    if (!$member) unset($_SESSION['alexore_member_id']);
+    if (!$member || (int) ($_SESSION['alexore_member_session_version'] ?? 1) !== (int) $member['session_version']) {
+      unset($_SESSION['alexore_member_id'], $_SESSION['alexore_member_session_version']);
+      $member = null;
+    }
+    if ($member) unset($member['session_version']);
   }
   if (empty($_SESSION['alexore_member_csrf'])) $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
   if (empty($_SESSION['alexore_reo_sso_state'])) $_SESSION['alexore_reo_sso_state'] = bin2hex(random_bytes(32));
@@ -504,7 +511,7 @@ if ($route === 'member-auth' && $method === 'POST') {
   $input = body_json();
   $action = (string) ($input['action'] ?? 'login');
   if ($action === 'logout') {
-    unset($_SESSION['alexore_member_id']);
+    unset($_SESSION['alexore_member_id'], $_SESSION['alexore_member_session_version']);
     $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
     respond(200, ['authenticated' => false]);
   }
@@ -534,11 +541,11 @@ if ($route === 'member-auth' && $method === 'POST') {
       $linked = $linkQuery->fetch();
       if ($linked) {
         $memberId = (int) $linked['member_id'];
-        $accountQuery = $pdo->prepare('SELECT id,is_active FROM site_members WHERE id=? LIMIT 1');
+        $accountQuery = $pdo->prepare('SELECT id,is_active,session_version FROM site_members WHERE id=? LIMIT 1');
         $accountQuery->execute([$memberId]);
         $account = $accountQuery->fetch();
       } else {
-        $accountQuery = $pdo->prepare('SELECT id,is_active,password_hash FROM site_members WHERE email=? LIMIT 1');
+        $accountQuery = $pdo->prepare('SELECT id,is_active,password_hash,session_version FROM site_members WHERE email=? LIMIT 1');
         $accountQuery->execute([strtolower((string) $studentIdentity['email'])]);
         $account = $accountQuery->fetch();
         if ($account && (int) $account['is_active'] === 1 && !empty($account['password_hash']) && (int) ($_SESSION['alexore_member_id'] ?? 0) !== (int) $account['id']) {
@@ -569,6 +576,7 @@ if ($route === 'member-auth' && $method === 'POST') {
     }
     session_regenerate_id(true);
     $_SESSION['alexore_member_id'] = $memberId;
+    $_SESSION['alexore_member_session_version'] = (int) ($account['session_version'] ?? 1);
     $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
     $member = require_member();
     respond(200, ['authenticated' => true, 'user' => $member, 'csrf' => $_SESSION['alexore_member_csrf']]);
@@ -584,7 +592,7 @@ if ($route === 'member-auth' && $method === 'POST') {
   if ($action === 'register') {
     $name = trim(preg_replace('/\s+/u', ' ', strip_tags((string) ($input['fullName'] ?? ''))) ?? '');
     if (mb_strlen($name) < 2 || mb_strlen($name) > 120) respond(422, ['error' => 'Enter your name.']);
-    $existing = $pdo->prepare('SELECT id,password_hash,is_active FROM site_members WHERE email=? LIMIT 1');
+    $existing = $pdo->prepare('SELECT id,password_hash,is_active,session_version FROM site_members WHERE email=? LIMIT 1');
     $existing->execute([$email]);
     $account = $existing->fetch();
     if ($account && (int) $account['is_active'] === 1 && $account['password_hash'] === null) {
@@ -602,7 +610,7 @@ if ($route === 'member-auth' && $method === 'POST') {
       }
     }
   } elseif ($action === 'login') {
-    $query = $pdo->prepare('SELECT id,password_hash FROM site_members WHERE email=? AND is_active=1 LIMIT 1');
+    $query = $pdo->prepare('SELECT id,password_hash,session_version FROM site_members WHERE email=? AND is_active=1 LIMIT 1');
     $query->execute([$email]);
     $account = $query->fetch();
     if (!$account || !$account['password_hash'] || !password_verify($password, $account['password_hash'])) {
@@ -618,9 +626,44 @@ if ($route === 'member-auth' && $method === 'POST') {
   }
   session_regenerate_id(true);
   $_SESSION['alexore_member_id'] = $memberId;
+  $versionQuery = $pdo->prepare('SELECT session_version FROM site_members WHERE id=?');
+  $versionQuery->execute([$memberId]);
+  $_SESSION['alexore_member_session_version'] = (int) $versionQuery->fetchColumn();
   $_SESSION['alexore_member_csrf'] = bin2hex(random_bytes(32));
   $member = require_member();
   respond($action === 'register' ? 201 : 200, ['authenticated' => true, 'user' => $member, 'csrf' => $_SESSION['alexore_member_csrf']]);
+}
+
+if ($route === 'member-password-reset' && $method === 'POST') {
+  if (!$memberSchemaReady) respond(503, ['error' => 'Account recovery is not available.']);
+  $input = body_json();
+  $action = (string) ($input['action'] ?? 'request');
+  if ($action === 'request') {
+    if (!$tableExists($pdo, 'password_reset_tokens') || !$tableExists($pdo, 'password_reset_requests')) respond(503, ['error' => 'Password recovery is not set up yet.']);
+    if (!smtp_is_configured($config)) respond(503, ['error' => 'Password recovery email is not configured yet.']);
+    $email = strtolower(trim((string) ($input['email'] ?? '')));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 254) respond(422, ['error' => 'Enter a valid email address.']);
+    if (password_reset_rate_allowed($pdo, $email)) {
+      $query = $pdo->prepare('SELECT id,email,full_name FROM site_members WHERE email=? AND is_active=1 LIMIT 1');
+      $query->execute([$email]);
+      $account = $query->fetch();
+      if ($account) {
+        try {
+          create_password_reset($pdo, $config, 'member', (int) $account['id'], $account['email'], $account['full_name']);
+        } catch (Throwable $error) {
+          error_log('alexore password reset mail failed: ' . $error->getMessage());
+        }
+      }
+    }
+    respond(200, ['ok' => true, 'message' => 'If an active account uses that email, a password reset link will arrive shortly.']);
+  }
+  if ($action === 'reset') {
+    $password = (string) ($input['password'] ?? '');
+    if (strlen($password) < 10 || strlen($password) > 72) respond(422, ['error' => 'Choose a password between 10 and 72 bytes.']);
+    if (!apply_password_reset($pdo, 'member', (string) ($input['token'] ?? ''), $password)) respond(400, ['error' => 'This reset link is invalid, expired, or already used. Request a new link.']);
+    respond(200, ['ok' => true, 'message' => 'Your password has been changed. Sign in with your new password.']);
+  }
+  respond(422, ['error' => 'Choose a valid password recovery action.']);
 }
 
 if ($route === 'site-members' && $method === 'GET') {

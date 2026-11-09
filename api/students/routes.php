@@ -6,6 +6,13 @@ function require_student(bool $requireMatric = true): int
   if (!$id) {
     respond(401, ['error' => 'Sign in to continue.']);
   }
+  $sessionQuery = $pdo->prepare('SELECT session_version FROM students WHERE id=? AND is_active=1 LIMIT 1');
+  $sessionQuery->execute([(int) $id]);
+  $sessionVersion = $sessionQuery->fetchColumn();
+  if ($sessionVersion === false || (int) ($_SESSION['ore_student_session_version'] ?? 1) !== (int) $sessionVersion) {
+    unset($_SESSION['ore_student_id'], $_SESSION['ore_student_session_version'], $_SESSION['ore_student_matric'], $_SESSION['ore_student_department'], $_SESSION['ore_student_level']);
+    respond(401, ['error' => 'Your session has expired. Sign in again.']);
+  }
   if ($requireMatric) {
     $profile = $pdo->prepare('SELECT matric_number,phone,department,level FROM students WHERE id=? AND is_active=1');
     $profile->execute([(int) $id]);
@@ -102,6 +109,42 @@ if (
   ]);
 }
 
+if ($route === 'student-password-reset' && $method === 'POST') {
+  $input = body_json();
+  $action = (string) ($input['action'] ?? 'request');
+  if ($action === 'request') {
+    try {
+      $pdo->query('SELECT 1 FROM password_reset_tokens LIMIT 0');
+      $pdo->query('SELECT 1 FROM password_reset_requests LIMIT 0');
+    } catch (Throwable) {
+      respond(503, ['error' => 'Password recovery is not set up yet.']);
+    }
+    if (!smtp_is_configured($config)) respond(503, ['error' => 'Password recovery email is not configured yet.']);
+    $email = strtolower(trim((string) ($input['email'] ?? '')));
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 254) respond(422, ['error' => 'Enter a valid email address.']);
+    if (password_reset_rate_allowed($pdo, $email)) {
+      $query = $pdo->prepare('SELECT id,email,full_name FROM students WHERE email=? AND is_active=1 LIMIT 1');
+      $query->execute([$email]);
+      $account = $query->fetch();
+      if ($account) {
+        try {
+          create_password_reset($pdo, $config, 'student', (int) $account['id'], $account['email'], $account['full_name']);
+        } catch (Throwable $error) {
+          error_log('Reo password reset mail failed: ' . $error->getMessage());
+        }
+      }
+    }
+    respond(200, ['ok' => true, 'message' => 'If an active account uses that email, a password reset link will arrive shortly.']);
+  }
+  if ($action === 'reset') {
+    $password = (string) ($input['password'] ?? '');
+    if (strlen($password) < 10 || strlen($password) > 72) respond(422, ['error' => 'Choose a password between 10 and 72 bytes.']);
+    if (!apply_password_reset($pdo, 'student', (string) ($input['token'] ?? ''), $password)) respond(400, ['error' => 'This reset link is invalid, expired, or already used. Request a new link.']);
+    respond(200, ['ok' => true, 'message' => 'Your password has been changed. Sign in with your new password.']);
+  }
+  respond(422, ['error' => 'Choose a valid password recovery action.']);
+}
+
 if ($route === 'student-upload-image' && $method === 'POST') {
   require_student();
   require_student_csrf();
@@ -149,9 +192,13 @@ if ($route === 'alexore-sso-start' && $method === 'GET') {
   $studentId = filter_var($_SESSION['ore_student_id'] ?? null, FILTER_VALIDATE_INT);
   $activeStudent = null;
   if ($studentId) {
-    $activeQuery = $pdo->prepare('SELECT id FROM students WHERE id=? AND is_active=1 LIMIT 1');
+    $activeQuery = $pdo->prepare('SELECT id,session_version FROM students WHERE id=? AND is_active=1 LIMIT 1');
     $activeQuery->execute([(int) $studentId]);
     $activeStudent = $activeQuery->fetch();
+    if ($activeStudent && (int) ($_SESSION['ore_student_session_version'] ?? 1) !== (int) $activeStudent['session_version']) {
+      unset($_SESSION['ore_student_id'], $_SESSION['ore_student_session_version'], $_SESSION['ore_student_matric'], $_SESSION['ore_student_department'], $_SESSION['ore_student_level']);
+      $activeStudent = null;
+    }
   }
   if (!$activeStudent) {
     $host = strtolower((string) parse_url('http://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST));
@@ -185,13 +232,18 @@ if ($route === 'student-auth' && $method === 'GET') {
   $student = null;
   if ($id) {
     $query = $pdo->prepare(
-      'SELECT id,full_name AS fullName,email,matric_number AS matricNumber,phone,department,level FROM students WHERE id=? AND is_active=1',
+      'SELECT id,full_name AS fullName,email,matric_number AS matricNumber,phone,department,level,session_version FROM students WHERE id=? AND is_active=1',
     );
     $query->execute([$id]);
     $student = $query->fetch() ?: null;
   }
   if (!$student) {
-    unset($_SESSION['ore_student_id'], $_SESSION['ore_student_matric']);
+    unset($_SESSION['ore_student_id'], $_SESSION['ore_student_session_version'], $_SESSION['ore_student_matric'], $_SESSION['ore_student_department'], $_SESSION['ore_student_level']);
+  } elseif ((int) ($_SESSION['ore_student_session_version'] ?? 1) !== (int) $student['session_version']) {
+    unset($_SESSION['ore_student_id'], $_SESSION['ore_student_session_version'], $_SESSION['ore_student_matric'], $_SESSION['ore_student_department'], $_SESSION['ore_student_level']);
+    $student = null;
+  } else {
+    unset($student['session_version']);
   }
   if (empty($_SESSION['ore_student_csrf'])) {
     $_SESSION['ore_student_csrf'] = bin2hex(random_bytes(32));
@@ -209,7 +261,7 @@ if ($route === 'student-auth' && $method === 'POST') {
   $action = (string) ($input['action'] ?? 'login');
   if ($action === 'logout') {
     require_student_csrf();
-    unset($_SESSION['ore_student_id'], $_SESSION['ore_student_matric'], $_SESSION['ore_student_department'], $_SESSION['ore_student_level']);
+    unset($_SESSION['ore_student_id'], $_SESSION['ore_student_session_version'], $_SESSION['ore_student_matric'], $_SESSION['ore_student_department'], $_SESSION['ore_student_level']);
     $_SESSION['ore_student_csrf'] = bin2hex(random_bytes(32));
     respond(200, ['authenticated' => false]);
   }
@@ -251,6 +303,7 @@ if ($route === 'student-auth' && $method === 'POST') {
     }
     session_regenerate_id(true);
     $_SESSION['ore_student_id'] = $studentId;
+    $_SESSION['ore_student_session_version'] = 1;
     $_SESSION['ore_student_matric'] = false;
     $_SESSION['ore_student_csrf'] = bin2hex(random_bytes(32));
     respond(201, [
@@ -273,7 +326,7 @@ if ($route === 'student-auth' && $method === 'POST') {
   }
   $email = strtolower(trim((string) ($input['email'] ?? '')));
   $query = $pdo->prepare(
-    'SELECT id,full_name,email,matric_number,phone,department,level,password_hash FROM students WHERE email=? AND is_active=1 LIMIT 1',
+    'SELECT id,full_name,email,matric_number,phone,department,level,password_hash,session_version FROM students WHERE email=? AND is_active=1 LIMIT 1',
   );
   $query->execute([$email]);
   $student = $query->fetch();
@@ -290,6 +343,7 @@ if ($route === 'student-auth' && $method === 'POST') {
   }
   session_regenerate_id(true);
   $_SESSION['ore_student_id'] = (int) $student['id'];
+  $_SESSION['ore_student_session_version'] = (int) $student['session_version'];
   $_SESSION['ore_student_matric'] = (bool) $student['matric_number'];
   $_SESSION['ore_student_csrf'] = bin2hex(random_bytes(32));
   $_SESSION['ore_student_login_attempts'] = 0;

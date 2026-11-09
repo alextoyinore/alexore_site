@@ -32,7 +32,7 @@ function renderWriting() {
         item
       )
         .map((tag) => `<a href="browse.html?tag=${encodeURIComponent(tag)}">#${esc(tag)}</a>`)
-        .join('')}</div><a class="card-arrow" href="${url}">Read article ↗</a></article>`;
+        .join('')}</div><a class="card-arrow" href="${url}">Read article</a></article>`;
     });
   empty.classList.toggle('hidden', results.length > 0);
 }
